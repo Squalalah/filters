@@ -38,6 +38,7 @@
 	(%0 & (%1)) //Définit si une touche est pressée ACTUELLEMENT
 
 #define KEY_AIM KEY_HANDBRAKE //On définit une touche "KEY_AIM" qui voudra dire "Touche pour viser, soit le clic droit".
+
 #define MONEYPERSEC 537 //Somme "donné à chaque seconde" pendant que le braqueur remplit son sac dans le coffre.(n'est pas donné chaque seconde, mais quand la personne arretera de remplir son sac)
 #define TIMERACTOR 99999999 //Temps avant que l'acteur n'active l'alarme après avoir été braqué (en millisecondes)
 #define TIMERPERCEUSE 10000 //Temps avant que la perceuse n'ouvre le coffre (en millisecondes)
@@ -46,10 +47,17 @@
 #define ERROR_BANKCODE 3 //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
 #define MINUTE_BANK_ROB_WAIT 120 //Nombre de minutes necessaires à attendre entre deux braquages
 #define SECOND_GRAB_MONEY 30
+
 #define COLOR_ORANGE 0x9e5e1aFF
 #define COLOR_ALARM 0xc42d2dFF
 #define COLOR_HACK_SUCCESS 0x1a7a3dFF
 #define COLOR_HACK_CODE "{2c7f7f}"
+
+#define MSG_NOT_FRONT_VAULT "{c42d2d}[ERREUR] Vous n'êtes pas devant le coffre de la banque !"
+#define MSG_NOT_FRONT_BAR "{c42d2d}[ERREUR] Vous n'êtes pas devant le comptoir de la banque !"
+#define MSG_VAULT_ALREADY_OPEN "Le coffre est déjà ouvert !"
+#define MSG_ROBBERY_NOT_STARTED "{c42d2d}[ERREUR] Le braquage n'a pas démarré !"
+
 
 
 ///~~~~~~~~ ENUMS ~~~~~~~~///
@@ -157,9 +165,9 @@ public OnPlayerCommandText(playerid, cmdtext[])
 {
 	if (strcmp("/poserc4", cmdtext, true) == 0)
 	{
-		if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, "Vous n'êtes pas devant le coffre !");
+		if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		//Si le joueur est à la banque, à la porte du coffre fort.
-  		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, "Le braquage n'est pas lancé !");
+  		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, MSG_ROBBERY_NOT_STARTED);
 	    if(c4[playerid] != 3) return SendClientMessage(playerid, -1, "Vous n'avez pas 3 pains de c4 sur vous !");
 	    if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, "Pourquoi vouloir détruire une porte ouvert ?!");
 	    if(Banque[isExploding]) return SendClientMessage(playerid, -1, "3 pains de C4 sont posés sur la porte et émmètent un bip de plus en plus fort...");
@@ -171,7 +179,6 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		Banque[isExploding] = true;
 		SetTimerEx("Timerc4", TIMERC4EXPLODE*1000, false, "i", playerid);
 		c4[playerid] = 0;
-
 		return 1;
 	}
 
@@ -184,8 +191,9 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	
 	if (strcmp("/poserperceuse", cmdtext, true) == 0)
 	{
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		if(Banque[isDrilling]) return SendClientMessage(playerid, -1, "Une perceuse est déjà en marche !");
-		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, "Le coffre fort est déjà ouvert !");
+		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, MSG_VAULT_ALREADY_OPEN);
 
 		Banque[isDrilling] = true;
 		SendClientMessage(playerid, -1, "[DEBUG] La perceuse est lancée");
@@ -196,8 +204,8 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	
 	if(strcmp("/pirater", cmdtext, true) == 0)
 	{
-	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1970.0134,137.7848,27.6875)) return SendClientMessage(playerid, COLOR_ORANGE, "Vous n'êtes pas devant le comptoir !");
-	    if(!Banque[isBraquage]) return SendClientMessage(playerid, COLOR_ORANGE, "La banque n'est pas braquée !");
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1970.0134,137.7848,27.6875)) return SendClientMessage(playerid, COLOR_ORANGE, MSG_NOT_FRONT_BAR);
+	    if(!Banque[isBraquage]) return SendClientMessage(playerid, COLOR_ORANGE, MSG_ROBBERY_NOT_STARTED);
 	    if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a coupé l'accès aux données");
 	    if(Banque[ishacking]) return SendClientMessage(playerid, COLOR_ORANGE, "L'ordinateur est déjà en cours de piratage !");
 	    if(Banque[ishacked]) return SendClientMessage(playerid, COLOR_ORANGE, "L'ordinateur a déjà été piraté !");
@@ -223,10 +231,10 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	    new
 	        mdp;
 		if(sscanf(cmdtext[6], "i", mdp)) return SendClientMessage(playerid, -1, "Utilisation : /code <code>");
-		if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, "Vous n'êtes pas devant le coffre !");
-		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, "La banque n'est pas braqué !");
+		if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
+		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, MSG_ROBBERY_NOT_STARTED);
 		if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a desactivé l'ouverture de la porte magnétiquement");
-		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, "Le coffre est déjà ouvert !");
+		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, MSG_VAULT_ALREADY_OPEN);
 		if(mdp != Banque[code])
 		{
 		    Banque[errorcode]++;
