@@ -38,11 +38,19 @@
 	(%0 & (%1)) //Définit si une touche est pressée ACTUELLEMENT
 
 #define KEY_AIM KEY_HANDBRAKE //On définit une touche "KEY_AIM" qui voudra dire "Touche pour viser, soit le clic droit".
-#define MONEYPERSEC 500 //Somme "donné à chaque seconde" pendant que le braqueur remplit son sac dans le coffre.(n'est pas donné chaque seconde, mais quand la personne arretera de remplir son sac)
+#define MONEYPERSEC 537 //Somme "donné à chaque seconde" pendant que le braqueur remplit son sac dans le coffre.(n'est pas donné chaque seconde, mais quand la personne arretera de remplir son sac)
 #define TIMERACTOR 99999999 //Temps avant que l'acteur n'active l'alarme après avoir été braqué (en millisecondes)
 #define TIMERPERCEUSE 10000 //Temps avant que la perceuse n'ouvre le coffre (en millisecondes)
 #define TIMERHACKING 10000 //Temps avant que le piratage se finisse (en millisecondes)
+#define TIMERC4EXPLODE 10 //Temps avant que le C4 n'explose (en secondes)
 #define ERROR_BANKCODE 3 //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
+#define MINUTE_BANK_ROB_WAIT 120 //Nombre de minutes necessaires à attendre entre deux braquages
+#define SECOND_GRAB_MONEY 30
+#define COLOR_ORANGE 0x9e5e1aFF
+#define COLOR_ALARM 0xc42d2dFF
+#define COLOR_HACK_SUCCESS 0x1a7a3dFF
+#define COLOR_HACK_CODE "{2c7f7f}"
+
 
 ///~~~~~~~~ ENUMS ~~~~~~~~///
 
@@ -51,19 +59,24 @@ enum
 {
 	actorID,
 	bool: isActorFreeze, //Variable booléenne déclarant si l'acteur au comptoir de la banque a les mains en l'air (true) ou non (false)
-	bool: isBraquage, //Variable booléeenne déclarant si un braquage est en cours (true) ou non (false)
+	bool: isBraquage, 	//Variable booléeenne déclarant si un braquage est en cours (true) ou non (false)
 	bool: isVaultOpen, //Variable booléenne déclarant si le coffre est ouvert ou non.
 	bool: isDrilling, //Variable booléenne déclarant si le coffre est en train d'être percé ou non.
-	bool: alarm, //Variable booléenne déclarant si l'alarme est activé ou non.
-	bool: ishacking, //Variable booléenne déclarant si l'ordinateur du comptoir --> est en train d'être piraté <--
-	bool: ishacked, //Variable booléenne déclarant si l'ordinateur du comptoir --> a déjà été piraté <--
-	timerperceuse, //Variable stockant le timer pour que la perceuse ouvre le coffre
-	timeractor, //Variable stockant le timer pour que l'acteur active l'alarme à la fin du timer
-	code, //Variable stockant le code généré si le piratage réussit
-	errorcode,//Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
-	vaultvalue, //Variable stockant le contenu de la banque (en argent pour les braqueurs)
-	vaultdoor,
-	moneyobject
+	bool: isExploding, // Variable booléenne déclarant si la porte du coffre-fort est sur le point d'exploser ou non.
+	bool: alarm, 	 //Variable booléenne déclarant si l'alarme est activé ou non.
+	bool: ishacking,   //Variable booléenne déclarant si l'ordinateur du comptoir --> est en train d'être piraté <--
+	bool: ishacked,   //Variable booléenne déclarant si l'ordinateur du comptoir --> a déjà été piraté <--
+	grabbingMoney,   //Variable contenant l'ID du premier joueur ayant recolté l'argent.
+	timerperceuse,  //Variable stockant le timer pour que la perceuse ouvre le coffre
+	timeractor,    //Variable stockant le timer pour que l'acteur active l'alarme à la fin du timer
+	timergrabmoney,   //Variable contenant le "timer" (GetTickCount), permettant de laisser x secondes au braqueur pour prendre l'argent.
+	timerbraquage,   // Variable contenant le "timer" (GetTickCount) avant de repermettre le braquage
+	code,          	//Variable stockant le code généré si le piratage réussit
+	errorcode, 	   //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
+	vaultvalue,   //Variable stockant le contenu de la banque (en argent pour les braqueurs)
+	vaultdoor,   //Variable contenant l'id de l'objet de la porte
+	moneyobject //Variable contenant l'id de l'objet du sac
+	
 };
 
 ///~~~~~~~~ VARS ~~~~~~~~///
@@ -76,6 +89,7 @@ new
 	pickupmoney[MAX_PLAYERS],
 	recupmoney[MAX_PLAYERS],
 	Banque[bInfos];
+
 	
 
 public OnFilterScriptInit()
@@ -88,8 +102,11 @@ public OnFilterScriptInit()
 	Banque[alarm] = false;
 	Banque[ishacking] = false;
 	Banque[ishacked] = false;
+	Banque[isExploding] = false;
 	Banque[vaultvalue] = 200000;
 	Banque[errorcode] = 0;
+	Banque[grabbingMoney] = -1;
+	Banque[timerbraquage] = 0;
 
 	print("FS bankrobbery lancé");
 	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, -1979.5, 136.60000610352, 27.799999237061, 40.0, 0, 0);
@@ -145,15 +162,16 @@ public OnPlayerCommandText(playerid, cmdtext[])
   		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, "Le braquage n'est pas lancé !");
 	    if(c4[playerid] != 3) return SendClientMessage(playerid, -1, "Vous n'avez pas 3 pains de c4 sur vous !");
 	    if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, "Pourquoi vouloir détruire une porte ouvert ?!");
-
-	    SendClientMessage(playerid, -1, "C4 posé, celui-ci a explosé");
-	    SendClientMessage(playerid, -1, "En entendant un énorme bruit d'explosion, les voisins ont appelés la police");
-		SendClientMessage(playerid, -1, "[DEBUG] la porte s'ouvre !");
-		Banque[isVaultOpen] = true; //Le coffre est ouvert !
-		c4[playerid] = 0;
+	    if(Banque[isExploding]) return SendClientMessage(playerid, -1, "3 pains de C4 sont posés sur la porte et émmètent un bip de plus en plus fort...");
+		new
+		    str[126];
+		format(str, sizeof(str), "Les pains de C4 ont bien été posés, ceux-ci exploseront dans %i secondes", TIMERC4EXPLODE);
+		SendClientMessage(playerid, -1, str);
 		
-		MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
-			//MoveObject sur la porte afin qu'elle s'ouvre, ou explose...
+		Banque[isExploding] = true;
+		SetTimerEx("Timerc4", TIMERC4EXPLODE*1000, false, "i", playerid);
+		c4[playerid] = 0;
+
 		return 1;
 	}
 
@@ -168,20 +186,21 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	{
 		if(Banque[isDrilling]) return SendClientMessage(playerid, -1, "Une perceuse est déjà en marche !");
 		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, "Le coffre fort est déjà ouvert !");
-	    Banque[isDrilling] = true;
-	    
+
+		Banque[isDrilling] = true;
 		SendClientMessage(playerid, -1, "[DEBUG] La perceuse est lancée");
 		Banque[timerperceuse] = SetTimer("TimerPerceuse", TIMERPERCEUSE, false);
+		
 		return 1;
 	}
 	
 	if(strcmp("/pirater", cmdtext, true) == 0)
 	{
-	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1970.0134,137.7848,27.6875)) return SendClientMessage(playerid, -1, "Vous n'êtes pas devant le comptoir !");
-	    if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, "La banque n'est pas braquée !");
-	    if(Banque[alarm]) return SendClientMessage(playerid, -1, "L'alarme a coupé l'accès aux données");
-	    if(Banque[ishacking]) return SendClientMessage(playerid, -1, "L'ordinateur est déjà en cours de piratage !");
-	    if(Banque[ishacked]) return SendClientMessage(playerid, -1, "L'ordinateur a déjà été piraté !");
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1970.0134,137.7848,27.6875)) return SendClientMessage(playerid, COLOR_ORANGE, "Vous n'êtes pas devant le comptoir !");
+	    if(!Banque[isBraquage]) return SendClientMessage(playerid, COLOR_ORANGE, "La banque n'est pas braquée !");
+	    if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a coupé l'accès aux données");
+	    if(Banque[ishacking]) return SendClientMessage(playerid, COLOR_ORANGE, "L'ordinateur est déjà en cours de piratage !");
+	    if(Banque[ishacked]) return SendClientMessage(playerid, COLOR_ORANGE, "L'ordinateur a déjà été piraté !");
 	    
 		TogglePlayerControllable(playerid, 0);
 		GameTextForPlayer(playerid, "Piratage en cours...", TIMERHACKING, 1);
@@ -192,10 +211,10 @@ public OnPlayerCommandText(playerid, cmdtext[])
 
 	if(strcmp("/alarme", cmdtext, true) == 0)
 	{
-	    if(!Banque[alarm]) return SendClientMessage(playerid, -1, "L'alarme est déjà coupée !");
+	    if(!Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme est déjà coupée !");
 
 		Banque[alarm] = false;
-		SendClientMessage(playerid, -1, "L'alarme a été desactivée !");
+		SendClientMessage(playerid, COLOR_ALARM, "L'alarme a été desactivée !");
 		return 1;
 	}
 	
@@ -206,7 +225,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		if(sscanf(cmdtext[6], "i", mdp)) return SendClientMessage(playerid, -1, "Utilisation : /code <code>");
 		if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, "Vous n'êtes pas devant le coffre !");
 		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, "La banque n'est pas braqué !");
-		if(Banque[alarm]) return SendClientMessage(playerid, -1, "L'alarme a desactivé l'ouverture de la porte magnétiquement");
+		if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a desactivé l'ouverture de la porte magnétiquement");
 		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, "Le coffre est déjà ouvert !");
 		if(mdp != Banque[code])
 		{
@@ -216,7 +235,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 			{
 				Banque[errorcode] = 0;
 				Banque[alarm] = true;
-				return SendClientMessage(playerid, -1, "Une alarme retentie, peut-être à cause de vos echecs répétés au mot de passe ?");
+				return SendClientMessage(playerid, COLOR_ALARM, "Une alarme retentie, peut-être à cause de vos echecs répétés au mot de passe ?");
 			}
 			return 1;
 		}
@@ -225,6 +244,11 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		Banque[isVaultOpen] = true;
 		
 	    return 1;
+	}
+	if(strcmp("/braquage", cmdtext, true) == 0)
+	{
+	    if(IsBraquageAvailable()) return SendClientMessage(playerid, -1, "Le braquage de banque est disponible !");
+	    else return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible !");
 	}
 	if(strcmp("/fermer", cmdtext, true) == 0) return MoveObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
 	if(strcmp("/arme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
@@ -257,6 +281,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 		{
 	     	if(id == Banque[actorID]) //Si l'ID récupéré est le même que dans le tableau Actor (index 0), donc le banquier.
 	     	{
+	     	    if(!IsBraquageAvailable()) return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible");
 				if(!Banque[isActorFreeze] && !Banque[isBraquage]) // Si le banquier n'a pas les mains en l'air et que le braquage n'est pas lancé
 				{
 	     	    	ApplyActorAnimation(Banque[actorID], "ped", "handsup", 4.1, 0, 0, 0, 1, 0);
@@ -265,6 +290,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	     	    	Banque[timeractor] = SetTimerEx("Timeractor", TIMERACTOR, false, "i", Banque[actorID]); // On lance un timer qui s'executera dans 15 secondes, si il n'a pas été rebraqué par la suite.
 	     	    	Banque[isActorFreeze] = true;
 	     	    	Banque[isBraquage] = true;
+					Banque[timerbraquage] = GetTickCount();
 	     	    	return 1;
 				}
 				else if(Banque[isBraquage] && Banque[isActorFreeze] && !Banque[alarm]) //Si il a déjà les mains en l'air et/ou que le braquage est lancé, on relance le timer avant qu'il active l'alarme.
@@ -286,11 +312,20 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	        if(iscollecting[playerid]) return 1;
 	        if(!Banque[isVaultOpen]) return 1;
 	        if(Banque[vaultvalue] == 0) return SendClientMessage(playerid, -1, "Il n'y a plus d'argent !");
+	        if(Banque[grabbingMoney] != playerid && Banque[grabbingMoney] != -1) return SendClientMessage(playerid, -1, "Quelqu'un d'autre a déjà commencé à prendre l'argent du coffre !");
+	        if(Banque[grabbingMoney] == playerid && GetTickCount() - Banque[timergrabmoney] > SECOND_GRAB_MONEY*1000)
+			{
+				SendClientMessage(playerid, -1, "Vous ne pouvez plus prendre de l'argent !");
+				Banque[isBraquage] = false;
+				return 1;
+			}
+
+			if(Banque[grabbingMoney] == -1) Banque[grabbingMoney] = playerid;
 	        
 	        SendClientMessage(playerid, -1, "[DEBUG] Vous collectez l'argent");
 	        ApplyAnimation(playerid, "POLICE", "CopTraf_Come", 4.1, 1, 1, 1, 0, 0, 0); //Animation où le joueur prend l'argent devant lui, celle-ci continuera jusqu'à appuyer sur ENTRER.
             GameTextForPlayer(playerid, "ENTRER pour quitter le mode collecte", 5000, 1);
-            TogglePlayerControllable(playerid,0);
+            TogglePlayerControllable(playerid, 0);
             iscollecting[playerid] = true;
             recupmoney[playerid] = GetTickCount();
             return 1;
@@ -343,8 +378,14 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			
 			format(str, sizeof(str), "Vous avez rempli votre sac avec %i$", money);
 			SendClientMessage(playerid, -1, str);
+			format(str, sizeof(str), "Vous disposez de %i secondes pour reremplir votre sac", SECOND_GRAB_MONEY);
+			
+			SendClientMessage(playerid, -1, str);
 	        SendClientMessage(playerid, -1, "[DEBUG] Vous pouvez vous enfuir !");
+	        
+	        Banque[timergrabmoney] = GetTickCount();
 	        TogglePlayerControllable(playerid, 1);
+	        
 	        hasrobmoney[playerid] = true; //Il a bien volé de l'argent !
          	iscollecting[playerid] = false;
 	        return 1;
@@ -374,20 +415,20 @@ public Timerpiratage(playerid)
 	    case 0: SendClientMessage(playerid, -1, "Le piratage a réussit mais vous n'avez trouvé aucun code !");
 	    case 1:
 	    {
-	    	SendClientMessage(playerid, -1, "Le piratage a réussit et vous avez trouvé les codes !");
+	    	SendClientMessage(playerid, COLOR_HACK_SUCCESS, "Le piratage a réussit et vous avez trouvé les codes !");
 	    	new
 	    	    rando[5],
 	    	    str[126];
 			for(new i = 0; i < 5; i++) rando[i] = random(10);
 			format(str, sizeof(str), "%i%i%i%i%i", rando[0], rando[1], rando[2], rando[3], rando[4]);
 			Banque[code] = strval(str);
-			format(str, sizeof(str), "Accès autorisé, code de sécurité : %i%i%i%i%i", rando[0], rando[1], rando[2], rando[3], rando[4]);
+			format(str, sizeof(str), "{1a7a3d}Accès autorisé, code de sécurité : "COLOR_HACK_CODE" %i%i%i%i%i", rando[0], rando[1], rando[2], rando[3], rando[4]);
 			SendClientMessage(playerid, -1, str);
 
 	    }
 		default:
 		{
-		    SendClientMessage(playerid, -1, "Durant la tentative de piratage, les services ont détectés une intrusion et l'alarme a été activé !");
+		    SendClientMessage(playerid, COLOR_ALARM, "Durant la tentative de piratage, les services ont détectés une intrusion et l'alarme a été activé !");
 		    Banque[alarm] = true;
 		    //la police est alerté
 		}
@@ -404,5 +445,26 @@ public TimerPerceuse()
 	SendClientMessageToAll(-1, "La perceuse s'est arreté... tout semble s'être bien deroulé");
 	SendClientMessageToAll(-1, "[DEBUG] La porte est débloqué, elle s'ouvrira avec la touche N");
 	return 1;
+}
+
+forward Timerc4(playerid);
+public Timerc4(playerid)
+{
+	SendClientMessage(playerid, -1, "C4 posé, celui-ci a explosé");
+	SendClientMessage(playerid, -1, "En entendant un énorme bruit d'explosion, les voisins ont appelés la police");
+	SendClientMessageToAll(-1, "[DEBUG] la porte s'ouvre !");
+	
+	Banque[isExploding] = false;
+	Banque[isVaultOpen] = true; //Le coffre est ouvert !
+	
+	MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
+	CreateExplosion(-1979.5999755859, 136.30000305176, 27.799999237061, 12, 5.0);
+	
+}
+
+stock IsBraquageAvailable()
+{
+	if(GetTickCount() - Banque[timerbraquage] > MINUTE_BANK_ROB_WAIT*60000) return true;
+	else return false;
 }
 
