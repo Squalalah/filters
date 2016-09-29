@@ -44,9 +44,12 @@
 #define TIMERPERCEUSE 10000 //Temps avant que la perceuse n'ouvre le coffre (en millisecondes)
 #define TIMERHACKING 10000 //Temps avant que le piratage se finisse (en millisecondes)
 #define TIMERC4EXPLODE 10 //Temps avant que le C4 n'explose (en secondes)
+#define TIMERALARM 19 //Temps après lequel l'alarme se relance
 #define ERROR_BANKCODE 3 //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
 #define MINUTE_BANK_ROB_WAIT 120 //Nombre de minutes necessaires à attendre entre deux braquages
 #define SECOND_GRAB_MONEY 30
+
+#define MAX_BAGS 2 //définit le nombre de sac de butin maximum en même temps
 
 #define COLOR_ORANGE 0x9e5e1aFF
 #define COLOR_ALARM 0xc42d2dFF
@@ -79,6 +82,7 @@ enum
 	timeractor,    //Variable stockant le timer pour que l'acteur active l'alarme à la fin du timer
 	timergrabmoney,   //Variable contenant le "timer" (GetTickCount), permettant de laisser x secondes au braqueur pour prendre l'argent.
 	timerbraquage,   // Variable contenant le "timer" (GetTickCount) avant de repermettre le braquage
+	timeralarm,     // Variable permettant de relancer l'alarme.
 	code,          	//Variable stockant le code généré si le piratage réussit
 	errorcode, 	   //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
 	vaultvalue,   //Variable stockant le contenu de la banque (en argent pour les braqueurs)
@@ -86,6 +90,13 @@ enum
 	moneyobject //Variable contenant l'id de l'objet du sac
 	
 };
+
+enum bagInfos
+{
+	bagid,
+	bagidpickup,
+	bagcontent
+}
 
 ///~~~~~~~~ VARS ~~~~~~~~///
 
@@ -96,7 +107,10 @@ new
 	c4[MAX_PLAYERS] = 0,
 	pickupmoney[MAX_PLAYERS],
 	recupmoney[MAX_PLAYERS],
-	Banque[bInfos];
+	Banque[bInfos],
+	bagbank[MAX_PLAYERS],
+	bagbankvalue[MAX_PLAYERS],
+	bags[MAX_BAGS][bagInfos];
 
 	
 
@@ -115,8 +129,18 @@ public OnFilterScriptInit()
 	Banque[errorcode] = 0;
 	Banque[grabbingMoney] = -1;
 	Banque[timerbraquage] = 0;
+	Banque[timeralarm] = TIMERALARM;
+	
+	SetTimer("Timer1s", 1000, true);
 
 	print("FS bankrobbery lancé");
+	
+	for(new i = 0, j = GetPlayerPoolSize(); i <= j; i++)
+	{
+ 		bagbank[i] = -1;
+		bagbankvalue[i] = 0;
+	}
+	
 	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, -1979.5, 136.60000610352, 27.799999237061, 40.0, 0, 0);
 	label[1] = Create3DTextLabel("Position coffre banque", 0x008080FF, -1984.0999755859, 137.69999694824, 27.10000038147, 40.0, 0, 0);
 	label[2] = Create3DTextLabel("Position pc pirater", 0x008080FF, -1970.0134,137.7848,27.6875, 40.0, 0, 0);
@@ -243,7 +267,9 @@ public OnPlayerCommandText(playerid, cmdtext[])
 			{
 				Banque[errorcode] = 0;
 				Banque[alarm] = true;
+                PlayAudioStreamInRange(60.0, -1969.6277, 137.9382, 27.6875, "https://gtrp.fr/media/uploads/alarmbank.mp3");
 				return SendClientMessage(playerid, COLOR_ALARM, "Une alarme retentie, peut-être à cause de vos echecs répétés au mot de passe ?");
+
 			}
 			return 1;
 		}
@@ -257,6 +283,28 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	{
 	    if(IsBraquageAvailable()) return SendClientMessage(playerid, -1, "Le braquage de banque est disponible !");
 	    else return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible !");
+	}
+	
+	if(strcmp("/poserbutin", cmdtext, true) == 0)
+	{
+	    if(bagbank[playerid] == -1) return SendClientMessage(playerid, -1, "Vous n'avez aucun sac de butin !");
+	    if(bagbankvalue[playerid] <= 0) return SendClientMessage(playerid, -1, "Votre sac de butin est vide !");
+		new
+			Float:pos[3],
+			str[200];
+			
+		RemovePlayerAttachedObject(playerid, 0);
+	 	DestroyObject(bagbank[playerid]);
+		GetPlayerPos(playerid, pos[0], pos[1], pos[2]);
+	 	
+		bags[0][bagid] = CreateObject(1550, pos[0]+2, pos[1], pos[2], 0.0, 0.0, 0.0);
+		bags[0][bagcontent] = bagbankvalue[playerid];
+		bags[0][bagidpickup] = CreatePickup(1210, 8, pos[0]+2, pos[1], pos[2], GetPlayerVirtualWorld(playerid));
+		
+		format(str, sizeof(str), "Vous avez laissé tomber votre sac de butin contenant %i$.", bagbankvalue[playerid]);
+		SendClientMessage(playerid, -1, str);
+		bagbankvalue[playerid] = 0;
+		return 1;
 	}
 	if(strcmp("/fermer", cmdtext, true) == 0) return MoveObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
 	if(strcmp("/arme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
@@ -274,6 +322,22 @@ public OnPlayerPickUpPickup(playerid, pickupid)
 	        SendClientMessage(playerid, -1, "Vous avez récupéré un sac rempli d'argent... vous vous étonnez vous mêmes.");
 	        break;
 	    }
+	    return 1;
+	}
+	
+	for(new i = 0; i < MAX_BAGS; i++)
+	{
+	    if(pickupid == bags[i][bagidpickup])
+		{
+		    bagbank[playerid] = SetPlayerAttachedObject(playerid, 0, 1550, 1, 0.129999, -0.257999, 0.000000, 4.200002, 83.499992, 155.999984);
+		    DestroyObject(bags[i][bagid]);
+		    bagbankvalue[playerid] = bags[0][bagcontent];
+			new
+			    str[126];
+			format(str, sizeof(str), "Vous avez trouvé %i$.", bagbankvalue[playerid]);
+			SendClientMessage(playerid, -1, str);
+			DestroyPickup(pickupid);
+		}
 	}
 	return 1;
 }
@@ -372,14 +436,16 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			
 			if(result > Banque[vaultvalue])
 			{
-			    GivePlayerMoney(playerid, Banque[vaultvalue]);
+			    //GivePlayerMoney(playerid, Banque[vaultvalue]);
+				bagbankvalue[playerid] += Banque[vaultvalue];
 				money = Banque[vaultvalue];
 				Banque[vaultvalue] = 0;
 				SendClientMessage(playerid, -1, "Vous semblez avoir pris les derniers billets !");
 			}
 			else
 			{
-			    GivePlayerMoney(playerid, result);
+			    //GivePlayerMoney(playerid, result);
+			    bagbankvalue[playerid] += result;
 			    money = result;
 			    Banque[vaultvalue] -= result;
 			}
@@ -391,8 +457,10 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			SendClientMessage(playerid, -1, str);
 	        SendClientMessage(playerid, -1, "[DEBUG] Vous pouvez vous enfuir !");
 	        
+	        if(bagbank[playerid] == -1) bagbank[playerid] = SetPlayerAttachedObject(playerid, 0, 1550, 1, 0.129999, -0.257999, 0.000000, 4.200002, 83.499992, 155.999984);
 	        Banque[timergrabmoney] = GetTickCount();
 	        TogglePlayerControllable(playerid, 1);
+			printf("[DEBUG] bagbankvalue[playerid] = %i", bagbankvalue[playerid]);
 	        
 	        hasrobmoney[playerid] = true; //Il a bien volé de l'argent !
          	iscollecting[playerid] = false;
@@ -409,6 +477,7 @@ public Timeractor(id)
 {
 	SendClientMessageToAll(-1, "Le banquier a donné l'alerte grace au bouton sous le guichet");
 	Banque[alarm] = true;
+	PlayAudioStreamInRange(60.0, -1969.6277, 137.9382, 27.6875, "https://gtrp.fr/media/uploads/alarmbank.mp3");
 	ClearActorAnimations(id);
 	return 1;
 }
@@ -438,7 +507,7 @@ public Timerpiratage(playerid)
 		{
 		    SendClientMessage(playerid, COLOR_ALARM, "Durant la tentative de piratage, les services ont détectés une intrusion et l'alarme a été activé !");
 		    Banque[alarm] = true;
-		    //la police est alerté
+		    PlayAudioStreamInRange(60.0, -1969.6277, 137.9382, 27.6875, "https://gtrp.fr/media/uploads/alarmbank.mp3");
 		}
 	}
 	Banque[ishacking] = false;
@@ -475,4 +544,34 @@ stock IsBraquageAvailable()
 	if(GetTickCount() - Banque[timerbraquage] > MINUTE_BANK_ROB_WAIT*60000) return true;
 	else return false;
 }
+
+
+forward PlayAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z, link[]);
+public PlayAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z, link[])
+{
+	for(new i = 0, j = GetPlayerPoolSize(); i <= j; i++)
+	{
+		if(IsPlayerInRangeOfPoint(i, radius, x, y, z))
+		{
+ 			PlayAudioStreamForPlayer(i, link, x, y, z, radius, 1);
+		}
+	}
+	return 1;
+}
+
+forward Timer1s();
+public Timer1s()
+{
+	if(Banque[alarm])
+	{
+	    if(Banque[timeralarm] > 0) Banque[timeralarm]--;
+	    else
+	    {
+	        Banque[timeralarm] = TIMERALARM;
+	        PlayAudioStreamInRange(60.0, -1969.6277, 137.9382, 27.6875, "https://gtrp.fr/media/uploads/alarmbank.mp3");
+	    }
+	}
+	return 1;
+}
+
 
