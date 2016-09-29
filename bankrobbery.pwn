@@ -61,7 +61,9 @@ enum
 	timeractor, //Variable stockant le timer pour que l'acteur active l'alarme à la fin du timer
 	code, //Variable stockant le code généré si le piratage réussit
 	errorcode,//Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
-	vaultvalue //Variable stockant le contenu de la banque (en argent pour les braqueurs)
+	vaultvalue, //Variable stockant le contenu de la banque (en argent pour les braqueurs)
+	vaultdoor,
+	moneyobject
 };
 
 ///~~~~~~~~ VARS ~~~~~~~~///
@@ -73,9 +75,7 @@ new
 	c4[MAX_PLAYERS] = 0,
 	pickupmoney[MAX_PLAYERS],
 	recupmoney[MAX_PLAYERS],
-	Banque[bInfos],
-	vaultdoor,
-	moneyobject;
+	Banque[bInfos];
 	
 
 public OnFilterScriptInit()
@@ -96,8 +96,8 @@ public OnFilterScriptInit()
 	label[1] = Create3DTextLabel("Position coffre banque", 0x008080FF, -1984.0999755859, 137.69999694824, 27.10000038147, 40.0, 0, 0);
 	label[2] = Create3DTextLabel("Position pc pirater", 0x008080FF, -1970.0134,137.7848,27.6875, 40.0, 0, 0);
 	
-	vaultdoor = CreateObject(2634, -1979.5, 136.60000610352, 27.799999237061, 0.0, 0.0, -90.0);
-	moneyobject = CreateObject(1550, -1984.0999755859, 137.69999694824, 27.10000038147, 0.0, 0.0, 0.0);
+	Banque[vaultdoor] = CreateObject(2634, -1979.5, 136.60000610352, 27.799999237061, 0.0, 0.0, -90.0);
+	Banque[moneyobject] = CreateObject(1550, -1984.0999755859, 137.69999694824, 27.10000038147, 0.0, 0.0, 0.0);
 
 	return 1;
 }
@@ -106,8 +106,8 @@ public OnFilterScriptExit()
 {
 	for(new i = 0; i < 3;i++) Delete3DTextLabel(label[i]);
 	DestroyActor(Banque[actorID]);
-	DestroyObject(vaultdoor);
-	DestroyObject(moneyobject);
+	DestroyObject(Banque[vaultdoor]);
+	DestroyObject(Banque[moneyobject]);
 	return 1;
 }
 
@@ -152,7 +152,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		Banque[isVaultOpen] = true; //Le coffre est ouvert !
 		c4[playerid] = 0;
 		
-		MoveObject(vaultdoor, -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
+		MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
 			//MoveObject sur la porte afin qu'elle s'ouvre, ou explose...
 		return 1;
 	}
@@ -221,12 +221,12 @@ public OnPlayerCommandText(playerid, cmdtext[])
 			return 1;
 		}
 		SendClientMessage(playerid, -1, "[SUCCES] Code validé !");
-		MoveObject(vaultdoor, -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
+		MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
 		Banque[isVaultOpen] = true;
 		
 	    return 1;
 	}
-	if(strcmp("/fermer", cmdtext, true) == 0) return MoveObject(vaultdoor, -1979.5, 136.60000610352, 27.799999237061, 3.0);
+	if(strcmp("/fermer", cmdtext, true) == 0) return MoveObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
 	if(strcmp("/arme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
 	return 0;
 }
@@ -302,7 +302,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	        if(!Banque[isDrilling]) return 1;
 	        if(Banque[isVaultOpen]) return 1;
 			SendClientMessageToAll(-1, "[DEBUG] La porte s'ouvre !");
-			MoveObject(vaultdoor, -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
+			MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
 			Banque[isVaultOpen] = false;
 			//Code pour moove la porte
 			return 1;
