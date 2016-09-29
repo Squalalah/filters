@@ -21,8 +21,6 @@
 //////
 
 
-
-
 #define FILTERSCRIPT
 #include <a_samp>
 #include <sscanf2>
@@ -31,20 +29,21 @@
 ///~~~~~~~~ DEFINES ~~~~~~~~///
 
 #define HOLDING(%0) \
-	((newkeys & (%0)) == (%0)) //Définit le fait qu'une touche est ENFONCÉ
+	((newkeys & (%0)) == (%0)) //Définit le fait qu'une touche est ENFONCÉE
 	
 #define PRESSED(%0) \
-	(((newkeys & (%0)) == (%0)) && ((oldkeys & (%0)) != (%0))) //Définit si la touché est PRESSÉ
+	(((newkeys & (%0)) == (%0)) && ((oldkeys & (%0)) != (%0))) //Définit si la touché est PRESSÉE
 	
 #define PRESSING(%0,%1) \
-	(%0 & (%1)) //Définit si une touche est pressé ACTUELLEMENT
+	(%0 & (%1)) //Définit si une touche est pressée ACTUELLEMENT
 
 #define KEY_AIM KEY_HANDBRAKE //On définit une touche "KEY_AIM" qui voudra dire "Touche pour viser, soit le clic droit".
 #define MONEYPERSEC 500 //Somme "donné à chaque seconde" pendant que le braqueur remplit son sac dans le coffre.(n'est pas donné chaque seconde, mais quand la personne arretera de remplir son sac)
 #define TIMERACTOR 99999999 //Temps avant que l'acteur n'active l'alarme après avoir été braqué (en millisecondes)
 #define TIMERPERCEUSE 10000 //Temps avant que la perceuse n'ouvre le coffre (en millisecondes)
 #define TIMERHACKING 10000 //Temps avant que le piratage se finisse (en millisecondes)
-#define ERROR_BANKCODE 3
+#define ERROR_BANKCODE 3 //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
+
 ///~~~~~~~~ ENUMS ~~~~~~~~///
 
 enum
