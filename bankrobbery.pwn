@@ -47,7 +47,7 @@
 #define TIMERALARM 19 //Temps après lequel l'alarme se relance
 #define ERROR_BANKCODE 3 //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
 #define MINUTE_BANK_ROB_WAIT 120 //Nombre de minutes necessaires à attendre entre deux braquages
-#define SECOND_GRAB_MONEY 30
+#define SECOND_GRAB_MONEY 30 //Nombres de secondes maximum avant l'interdiction de reprendre de l'argent dans le coffre-fort
 
 #define MAX_BAGS 2 //définit le nombre de sac de butin maximum en même temps
 
@@ -69,11 +69,11 @@ enum
 	bInfos
 {
 	actorID,
-	bool: isActorFreeze, //Variable booléenne déclarant si l'acteur au comptoir de la banque a les mains en l'air (true) ou non (false)
-	bool: isBraquage, 	//Variable booléeenne déclarant si un braquage est en cours (true) ou non (false)
-	bool: isVaultOpen, //Variable booléenne déclarant si le coffre est ouvert ou non.
-	bool: isDrilling, //Variable booléenne déclarant si le coffre est en train d'être percé ou non.
-	bool: isExploding, // Variable booléenne déclarant si la porte du coffre-fort est sur le point d'exploser ou non.
+	bool: isActorFreeze,  //Variable booléenne déclarant si l'acteur au comptoir de la banque a les mains en l'air (true) ou non (false)
+	bool: isBraquage, 	 //Variable booléeenne déclarant si un braquage est en cours (true) ou non (false)
+	bool: isVaultOpen,  //Variable booléenne déclarant si le coffre est ouvert ou non.
+	bool: isDrilling,  //Variable booléenne déclarant si le coffre est en train d'être percé ou non.
+	bool: isExploding,// Variable booléenne déclarant si la porte du coffre-fort est sur le point d'exploser ou non.
 	bool: alarm, 	 //Variable booléenne déclarant si l'alarme est activé ou non.
 	bool: ishacking,   //Variable booléenne déclarant si l'ordinateur du comptoir --> est en train d'être piraté <--
 	bool: ishacked,   //Variable booléenne déclarant si l'ordinateur du comptoir --> a déjà été piraté <--
@@ -83,11 +83,11 @@ enum
 	timergrabmoney,   //Variable contenant le "timer" (GetTickCount), permettant de laisser x secondes au braqueur pour prendre l'argent.
 	timerbraquage,   // Variable contenant le "timer" (GetTickCount) avant de repermettre le braquage
 	timeralarm,     // Variable permettant de relancer l'alarme.
-	code,          	//Variable stockant le code généré si le piratage réussit
-	errorcode, 	   //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
-	vaultvalue,   //Variable stockant le contenu de la banque (en argent pour les braqueurs)
-	vaultdoor,   //Variable contenant l'id de l'objet de la porte
-	moneyobject //Variable contenant l'id de l'objet du sac
+	code,          //Variable stockant le code généré si le piratage réussit
+	errorcode, 	  //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
+	vaultvalue,  //Variable stockant le contenu de la banque (en argent pour les braqueurs)
+	vaultdoor,  //Variable contenant l'id de l'objet de la porte
+	moneyobject//Variable contenant l'id de l'objet du sac
 	
 };
 
@@ -187,7 +187,7 @@ public OnPlayerText(playerid, text[])
 
 public OnPlayerCommandText(playerid, cmdtext[])
 {
-	if (strcmp("/poserc4", cmdtext, true) == 0)
+	if (strcmp("/testposerc4", cmdtext, true) == 0)
 	{
 		if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		//Si le joueur est à la banque, à la porte du coffre fort.
@@ -206,14 +206,14 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 
-	if (strcmp("/getc4", cmdtext, true) == 0)
+	if (strcmp("/testgetc4", cmdtext, true) == 0)
 	{
 	    SendClientMessage(playerid, -1, "Vous avez obtenu 3 pains de C4");
 	    c4[playerid] = 3;
 	    return 1;
 	}
 	
-	if (strcmp("/poserperceuse", cmdtext, true) == 0)
+	if (strcmp("/testposerperceuse", cmdtext, true) == 0)
 	{
 	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		if(Banque[isDrilling]) return SendClientMessage(playerid, -1, "Une perceuse est déjà en marche !");
@@ -226,7 +226,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 	
-	if(strcmp("/pirater", cmdtext, true) == 0)
+	if(strcmp("/testpirater", cmdtext, true) == 0)
 	{
 	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1970.0134,137.7848,27.6875)) return SendClientMessage(playerid, COLOR_ORANGE, MSG_NOT_FRONT_BAR);
 	    if(!Banque[isBraquage]) return SendClientMessage(playerid, COLOR_ORANGE, MSG_ROBBERY_NOT_STARTED);
@@ -241,7 +241,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 
-	if(strcmp("/alarme", cmdtext, true) == 0)
+	if(strcmp("/testalarme", cmdtext, true) == 0)
 	{
 	    if(!Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme est déjà coupée !");
 
@@ -250,7 +250,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 	
-	if(strcmp("/code", cmdtext, true, 5) == 0)
+	if(strcmp("/testcode", cmdtext, true, 5) == 0)
 	{
 	    new
 	        mdp;
@@ -279,13 +279,13 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		
 	    return 1;
 	}
-	if(strcmp("/braquage", cmdtext, true) == 0)
+	if(strcmp("/testbraquage", cmdtext, true) == 0)
 	{
 	    if(IsBraquageAvailable()) return SendClientMessage(playerid, -1, "Le braquage de banque est disponible !");
 	    else return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible !");
 	}
 	
-	if(strcmp("/poserbutin", cmdtext, true) == 0)
+	if(strcmp("/testposerbutin", cmdtext, true) == 0)
 	{
 	    if(bagbank[playerid] == -1) return SendClientMessage(playerid, -1, "Vous n'avez aucun sac de butin !");
 	    if(bagbankvalue[playerid] <= 0) return SendClientMessage(playerid, -1, "Votre sac de butin est vide !");
@@ -306,8 +306,8 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		bagbankvalue[playerid] = 0;
 		return 1;
 	}
-	if(strcmp("/fermer", cmdtext, true) == 0) return MoveObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
-	if(strcmp("/arme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
+	if(strcmp("/testfermer", cmdtext, true) == 0) return MoveObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
+	if(strcmp("/testarme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
 	return 0;
 }
 
