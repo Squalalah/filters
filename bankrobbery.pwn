@@ -5,6 +5,10 @@
 //////
 ///     				CE FILTERSCRIPT EST EN ETAT DE PROTOTYPE.
 //////  IL N'Y A DONC AUCUNE REEL OPTIMISATION AINSI QUE D'AGENCEMENT (beauté) DU CODE.
+///
+//////                          Imaginé et Codé par Squalalah
+///
+/////                       	https://github.com/Squalalah
 ///     ///    ///    ///    ///    ///    ///    ///    ///    ///    ///    ///    ///
 //////    ///    ///    ///    ///    ///    ///    ///    ///    ///    ///    ///    ///
 ///    ///    ///    ///    ///v    ///    ///    ///    ///    ///    ///    ///    ///    ///
@@ -29,9 +33,15 @@
 
 ///~~~~~~~~ DEFINES ~~~~~~~~///
 
+//SendMessageInRange(int:range, float:x, float:y, float:z, color, str[], args[])
+
+#define SendMessageInRange(%0,%1,%2,%3,%4,%5,%6) \
+	for(new i = 0, j = GetPlayerPoolSize(); i <= j;i++) if(IsPlayerInRangeOfPoint(i,(%0),(%1),(%2),(%3))) \
+	    format(strrange, sizeof(strrange),(%5),(%6)), SendClientMessage(i,(%4), strrange)
+
 #define HOLDING(%0) \
 	((newkeys & (%0)) == (%0)) //Définit le fait qu'une touche est ENFONCÉE
-	
+
 #define PRESSED(%0) \
 	(((newkeys & (%0)) == (%0)) && ((oldkeys & (%0)) != (%0))) //Définit si la touché est PRESSÉE
 	
@@ -40,17 +50,17 @@
 
 #define KEY_AIM KEY_HANDBRAKE //On définit une touche "KEY_AIM" qui voudra dire "Touche pour viser, soit le clic droit".
 
-#define MONEYPERSEC 537 //Somme "donné à chaque seconde" pendant que le braqueur remplit son sac dans le coffre.(n'est pas donné chaque seconde, mais quand la personne arretera de remplir son sac)
-#define TIMERACTOR 99999999 //Temps avant que l'acteur n'active l'alarme après avoir été braqué (en millisecondes)
-#define TIMERPERCEUSE 10000 //Temps avant que la perceuse n'ouvre le coffre (en millisecondes)
-#define TIMERHACKING 10000 //Temps avant que le piratage se finisse (en millisecondes)
-#define TIMERC4EXPLODE 10 //Temps avant que le C4 n'explose (en secondes)
-#define TIMERGRILLCLOSED 20 //Temps minimum avant que la grille de la banque ne se ferme
-#define TIMERGRILLCLOSED_MAX 10 //Temps maximum avant que la grille de la banque ne se ferme
-#define TIMERALARM 19 //Temps après lequel l'alarme se relance (le son)
-#define ERROR_BANKCODE 3 //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
+#define MONEYPERSEC 537 			 //Somme "donné à chaque seconde" pendant que le braqueur remplit son sac dans le coffre.(n'est pas donné chaque seconde, mais quand la personne arretera de remplir son sac)
+#define TIMERACTOR 99999999 	    //Temps avant que l'acteur n'active l'alarme après avoir été braqué (en millisecondes)
+#define TIMERPERCEUSE 10000 	   //Temps avant que la perceuse n'ouvre le coffre (en millisecondes)
+#define TIMERHACKING 10000 		  //Temps avant que le piratage se finisse (en millisecondes)
+#define TIMERC4EXPLODE 10 		 //Temps avant que le C4 n'explose (en secondes)
+#define TIMERGRILLCLOSED 20     //Temps minimum avant que la grille de la banque ne se ferme
+#define TIMERGRILLCLOSED_MAX 10//===//Temps maximum avant que la grille de la banque ne se ferme
+#define TIMERALARM 190 		   	   //Temps après lequel l'alarme se relance (le son) (en secondes)
+#define ERROR_BANKCODE 3 	  	  //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
 #define MINUTE_BANK_ROB_WAIT 120 //Nombre de minutes necessaires à attendre entre deux braquages.
-#define SECOND_GRAB_MONEY 30 //Nombres de secondes maximum avant l'interdiction de reprendre de l'argent dans le coffre-fort.
+#define SECOND_GRAB_MONEY 30 	//Nombres de secondes maximum avant l'interdiction de reprendre de l'argent dans le coffre-fort.
 
 #define MAX_BAGS 2 //définit le nombre de sac de butin maximum en même temps
 
@@ -64,8 +74,55 @@
 #define MSG_VAULT_ALREADY_OPEN "Le coffre est déjà ouvert !"
 #define MSG_ROBBERY_NOT_STARTED "{c42d2d}[ERREUR] Le braquage n'a pas démarré !"
 
-///~~~~~~~~ Arrays ~~~~~~~~///
+///~~~~~~~~ FORWARDS ~~~~~~~~///
 
+forward Random(min, max);
+forward Timer1s();
+forward StopAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z);
+forward PlayAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z, link[]);
+forward Timerc4(playerid);
+forward TimerPerceuse();
+forward Timerpiratage(playerid);
+forward Timeractor(id);
+
+
+///~~~~~~~~ ENUMS ~~~~~~~~///
+
+enum
+	bInfos
+{
+	actorID[5],
+	bool: isActorFreeze,  //Variable booléenne déclarant si l'acteur au comptoir de la banque a les mains en l'air (true) ou non (false)
+	bool: isBraquage, 	 //Variable booléeenne déclarant si un braquage est en cours (true) ou non (false)
+	bool: isVaultOpen,  //Variable booléenne déclarant si le coffre est ouvert ou non.
+	bool: isDrilling,  //Variable booléenne déclarant si le coffre est en train d'être percé ou non.
+	bool: isExploding,// Variable booléenne déclarant si la porte du coffre-fort est sur le point d'exploser ou non.
+	bool: alarm, 	 //Variable booléenne déclarant si l'alarme est activé ou non.
+	bool: ishacking,   //Variable booléenne déclarant si l'ordinateur du comptoir --> est en train d'être piraté <--
+	bool: ishacked,   //Variable booléenne déclarant si l'ordinateur du comptoir --> a déjà été piraté <--
+	grabbingMoney,   //Variable contenant l'ID du premier joueur ayant recolté l'argent.
+	timerperceuse,  //Variable stockant le timer pour que la perceuse ouvre le coffre
+	timeractor,    //Variable stockant le timer pour que l'acteur active l'alarme à la fin du timer
+	timergrabmoney,   //Variable contenant le "timer" (GetTickCount), permettant de laisser x secondes au braqueur pour prendre l'argent.
+	timerbraquage,   // Variable contenant le "timer" (GetTickCount) avant de repermettre le braquage
+	timeralarm,     // Variable permettant de relancer l'alarme.
+	timergrill,    // Variable permettant de fermer la grille aléatoirement.
+	code,          //Variable stockant le code généré si le piratage réussit
+	errorcode, 	  //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
+	vaultvalue,  //Variable stockant le contenu de la banque (en argent pour les braqueurs)
+	vaultdoor,  //Variable contenant l'id de l'objet de la porte
+	vaultgrill,
+	moneyobject//Variable contenant l'id de l'objet du sac
+
+
+};
+
+enum bagInfos
+{
+	bagid,
+	bagidpickup,
+	bagcontent
+}
 
 enum bPos
 {
@@ -77,6 +134,8 @@ enum bPos
 	Float:rz,
 	vw
 };
+
+///~~~~~~~~ Arrays ~~~~~~~~///
 
 new
 	VaultDoor[0][3] = {float:-1979.5, float:136.60000610352, float:27.799999237061},
@@ -127,46 +186,7 @@ new
 	{-2446.6992, 507.3693, 45.5625, 0.0, 0.0, 0.0, 13}
 	};
 
-	
-///~~~~~~~~ ENUMS ~~~~~~~~///
 
-
-
-enum
-	bInfos
-{
-	actorID,
-	bool: isActorFreeze,  //Variable booléenne déclarant si l'acteur au comptoir de la banque a les mains en l'air (true) ou non (false)
-	bool: isBraquage, 	 //Variable booléeenne déclarant si un braquage est en cours (true) ou non (false)
-	bool: isVaultOpen,  //Variable booléenne déclarant si le coffre est ouvert ou non.
-	bool: isDrilling,  //Variable booléenne déclarant si le coffre est en train d'être percé ou non.
-	bool: isExploding,// Variable booléenne déclarant si la porte du coffre-fort est sur le point d'exploser ou non.
-	bool: alarm, 	 //Variable booléenne déclarant si l'alarme est activé ou non.
-	bool: ishacking,   //Variable booléenne déclarant si l'ordinateur du comptoir --> est en train d'être piraté <--
-	bool: ishacked,   //Variable booléenne déclarant si l'ordinateur du comptoir --> a déjà été piraté <--
-	grabbingMoney,   //Variable contenant l'ID du premier joueur ayant recolté l'argent.
-	timerperceuse,  //Variable stockant le timer pour que la perceuse ouvre le coffre
-	timeractor,    //Variable stockant le timer pour que l'acteur active l'alarme à la fin du timer
-	timergrabmoney,   //Variable contenant le "timer" (GetTickCount), permettant de laisser x secondes au braqueur pour prendre l'argent.
-	timerbraquage,   // Variable contenant le "timer" (GetTickCount) avant de repermettre le braquage
-	timeralarm,     // Variable permettant de relancer l'alarme.
-	timergrill,    // Variable permettant de fermer la grille aléatoirement.
-	code,          //Variable stockant le code généré si le piratage réussit
-	errorcode, 	  //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
-	vaultvalue,  //Variable stockant le contenu de la banque (en argent pour les braqueurs)
-	vaultdoor,  //Variable contenant l'id de l'objet de la porte
-	vaultgrill,  
-	moneyobject//Variable contenant l'id de l'objet du sac
-
-	
-};
-
-enum bagInfos
-{
-	bagid,
-	bagidpickup,
-	bagcontent
-}
 
 ///~~~~~~~~ VARS ~~~~~~~~///
 
@@ -181,15 +201,16 @@ new
 	bagbank[MAX_PLAYERS],
 	bagbankvalue[MAX_PLAYERS],
 	bags[MAX_BAGS][bagInfos],
-	Actor[10];
+	Actor[10],
+	strrange[128];
 
 	
 
 public OnFilterScriptInit()
 {
-	Banque[actorID] = CreateActor(240, GTRPPosActor[0][px], GTRPPosActor[0][py],GTRPPosActor[0][pz],GTRPPosActor[0][rx]);
+	Banque[actorID][0] = CreateActor(240, GTRPPosActor[0][px], GTRPPosActor[0][py],GTRPPosActor[0][pz],GTRPPosActor[0][rx]);
 	Actor[0] = CreateActor(71, 1586.5034, 2392.5320, 1137.1508, 266.000);
-	SetActorVirtualWorld(Banque[actorID], GTRPPosActor[0][vw]);
+	SetActorVirtualWorld(Banque[actorID][0], GTRPPosActor[0][vw]);
 	SetActorVirtualWorld(Actor[0], 13);
 	Banque[isActorFreeze] = false;
 	Banque[isBraquage] = false;
@@ -219,9 +240,9 @@ public OnFilterScriptInit()
 		bagbankvalue[i] = 0;
 	}
 	
-	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz], 40.0, GTRPVaultDoor[0][vw], 0);
-	label[1] = Create3DTextLabel("Position coffre banque", 0x008080FF, GTRPVault[0][px], GTRPVault[0][py], GTRPVault[0][pz], 40.0, GTRPVaultDoor[0][vw], 0);
-	label[2] = Create3DTextLabel("Position pc pirater", 0x008080FF, GTRPBankHack[0][px],GTRPBankHack[0][py],GTRPBankHack[0][pz], 40.0, GTRPVaultDoor[0][vw], 0);
+	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz], 10.0, GTRPVaultDoor[0][vw], 0);
+	label[1] = Create3DTextLabel("Position coffre banque", 0x008080FF, GTRPVault[0][px], GTRPVault[0][py], GTRPVault[0][pz], 10.0, GTRPVaultDoor[0][vw], 0);
+	label[2] = Create3DTextLabel("Position pc pirater", 0x008080FF, GTRPBankHack[0][px],GTRPBankHack[0][py],GTRPBankHack[0][pz], 10.0, GTRPVaultDoor[0][vw], 0);
 	
 	
 	Banque[vaultdoor] = CreateDynamicObject(2634, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz],  GTRPVaultDoor[0][rx],  GTRPVaultDoor[0][ry], GTRPVaultDoor[0][rz]);
@@ -233,7 +254,7 @@ public OnFilterScriptInit()
 public OnFilterScriptExit()
 {
 	for(new i = 0; i < 3;i++) Delete3DTextLabel(label[i]);
-	DestroyActor(Banque[actorID]);
+	DestroyActor(Banque[actorID][0]);
 	DestroyActor(Actor[0]);
 	DestroyObject(Banque[vaultdoor]);
 	DestroyObject(Banque[moneyobject]);
@@ -262,9 +283,6 @@ public OnPlayerText(playerid, text[])
 
 public OnPlayerCommandText(playerid, cmdtext[])
 {
-	new
-	    tmp[128],
-	    idx;
 	if (strcmp("/testposerc4", cmdtext, true) == 0)
 	{
 		if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
@@ -294,6 +312,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	if (strcmp("/testposerperceuse", cmdtext, true) == 0)
 	{
 	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
+	    if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, MSG_ROBBERY_NOT_STARTED);
 		if(Banque[isDrilling]) return SendClientMessage(playerid, -1, "Une perceuse est déjà en marche !");
 		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, MSG_VAULT_ALREADY_OPEN);
 
@@ -326,7 +345,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	    
 		Banque[alarm] = false;
 		Banque[isActorFreeze] = false;
-		ClearActorAnimations(Banque[actorID]);
+		ClearActorAnimations(Banque[actorID][0]);
 		
 		MoveDynamicObject(Banque[vaultgrill], GTRPGrillOpen[0][px], GTRPGrillOpen[0][py], GTRPGrillOpen[0][pz], 1.0, GTRPGrillOpen[0][rx], GTRPGrillOpen[0][ry], GTRPGrillOpen[0][rz]);
 		Banque[timergrill] = -1;
@@ -338,22 +357,21 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 	
- 	if(strcmp(cmdtext, "/testcode", true) == 0)
+ 	if(strcmp(cmdtext, "/testcode", true) == 9)
 	{
 		if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVaultDigiCode[0][px], GTRPVaultDigiCode[0][py], GTRPVaultDigiCode[0][pz])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, MSG_ROBBERY_NOT_STARTED);
 		if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a desactivé l'ouverture de la porte magnétiquement");
 		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, MSG_VAULT_ALREADY_OPEN);
-		
-		tmp = strtok(cmdtext, idx);
-		if(!strlen(tmp)) return SendClientMessage(playerid, -1, "/code [code]");
-
 		new
-			mdp = strval(tmp);
+			mdp,
+			str[128];
+		if(sscanf(cmdtext, "si", str, mdp)) SendClientMessage(playerid, -1, "Usage: /code <code>");
+
 		if(mdp != Banque[code])
 		{
 		    Banque[errorcode]++;
-			SendClientMessage(playerid, -1, "[ERREUR] : Code incorrect !");
+			SendClientMessage(playerid, COLOR_ALARM, "[ERREUR] : Code incorrect !");
 			if(Banque[errorcode] == ERROR_BANKCODE)
 			{
 				Banque[errorcode] = 0;
@@ -361,7 +379,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 			}
 			return 1;
 		}
-		SendClientMessage(playerid, -1, "[SUCCES] Code validé !");
+		SendClientMessage(playerid, COLOR_HACK_SUCCESS, "[SUCCES] Code validé !");
 		MoveDynamicObject(Banque[vaultdoor], GTRPVaultDoorOpened[0][px], GTRPVaultDoorOpened[0][py], GTRPVaultDoorOpened[0][pz], 3.0, GTRPVaultDoorOpened[0][rx], GTRPVaultDoorOpened[0][ry], GTRPVaultDoorOpened[0][rz]);
 		Banque[isVaultOpen] = true;
 		return 1;
@@ -454,15 +472,15 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			
 	    if(id != INVALID_ACTOR_ID)// Si l'ID recupéré est invalide (le joueur ne vise pas un acteur), on va directement à la fin de la Callback.
 		{
-	     	if(id == Banque[actorID]) //Si l'ID récupéré est le même que dans le tableau Actor (index 0), donc le banquier.
+	     	if(id == Banque[actorID][0]) //Si l'ID récupéré est le même que dans le tableau Actor (index 0), donc le banquier.
 	     	{
-	     	    if(!IsBraquageAvailable() && !Banque[isActorFreeze]) return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible");
+	     	    if(!IsBraquageAvailable() && Banque[isActorFreeze]) return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible (en cours)");
 				if(!Banque[isActorFreeze] && !Banque[isBraquage]) // Si le banquier n'a pas les mains en l'air et que le braquage n'est pas lancé
 				{
-	     	    	ApplyActorAnimation(Banque[actorID], "ped", "handsup", 4.1, 0, 0, 0, 1, 0);
+	     	    	ApplyActorAnimation(Banque[actorID][0], "ped", "handsup", 4.1, 0, 0, 0, 1, 0);
 	     	    	SendClientMessageToAll(-1, "Le banquier a été braqué !");
 	     	    	SendClientMessageToAll(-1, "[DEBUG] Le braquage a commencé, il faut maintenant : poser C4 sur le coffre, le percer ou pirater le PC du comptoir");
-	     	    	Banque[timeractor] = SetTimerEx("Timeractor", TIMERACTOR, false, "i", Banque[actorID]); // On lance un timer qui s'executera dans 15 secondes, si il n'a pas été rebraqué par la suite.
+	     	    	Banque[timeractor] = SetTimerEx("Timeractor", TIMERACTOR, false, "i", Banque[actorID][0]); // On lance un timer qui s'executera dans 15 secondes, si il n'a pas été rebraqué par la suite.
 	     	    	Banque[isActorFreeze] = true;
 	     	    	Banque[isBraquage] = true;
 					Banque[timerbraquage] = GetTickCount();
@@ -471,7 +489,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				else if(Banque[isActorFreeze] && !Banque[alarm]) //Si il a déjà les mains en l'air et/ou que le braquage est lancé, on relance le timer avant qu'il active l'alarme.
 				{
 					KillTimer(Banque[timeractor]);
-					Banque[timeractor] = SetTimerEx("Timeractor", TIMERACTOR, false, "i", Banque[actorID]);
+					Banque[timeractor] = SetTimerEx("Timeractor", TIMERACTOR, false, "i", Banque[actorID][0]);
 					SendClientMessage(playerid, -1, "Vous l'avez rebraqué !");
 					return 1;
 				}
@@ -483,7 +501,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	{
 	    if(IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVault[0][px], GTRPVault[0][py], GTRPVault[0][pz])) //Si le joueur est dans le coffre
 	    {
-	        if(!Banque[isBraquage]) return 1;
 	        if(iscollecting[playerid]) return 1;
 	        if(!Banque[isVaultOpen]) return 1;
 	        if(Banque[vaultvalue] == 0) return SendClientMessage(playerid, -1, "Il n'y a plus d'argent !");
@@ -491,7 +508,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	        if(Banque[grabbingMoney] == playerid && GetTickCount() - Banque[timergrabmoney] > SECOND_GRAB_MONEY*1000)
 			{
 				SendClientMessage(playerid, -1, "Vous ne pouvez plus prendre de l'argent !");
-				Banque[isBraquage] = false;
 				return 1;
 			}
 
@@ -559,6 +575,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			
 			SendClientMessage(playerid, -1, str);
 	        SendClientMessage(playerid, -1, "[DEBUG] Vous pouvez vous enfuir !");
+        	Banque[isBraquage] = false;
 
 	        if(bagbank[playerid] == -1) bagbank[playerid] = SetPlayerAttachedObject(playerid, 0, 1550, 1, 0.129999, -0.257999, 0.000000, 4.200002, 83.499992, 155.999984);
 	        Banque[timergrabmoney] = GetTickCount();
@@ -574,8 +591,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 }
 
 
-forward Timeractor(id);
-
 public Timeractor(id)
 {
 	SendClientMessageToAll(-1, "Le banquier a donné l'alerte grace au bouton sous le guichet");
@@ -584,7 +599,6 @@ public Timeractor(id)
 	return 1;
 }
 
-forward Timerpiratage(playerid);
 public Timerpiratage(playerid)
 {
 	new
@@ -595,9 +609,9 @@ public Timerpiratage(playerid)
 	    case 1:
 	    {
 	    	SendClientMessage(playerid, COLOR_HACK_SUCCESS, "Le piratage a réussit et vous avez trouvé les codes !");
-	    	new
-	    	    rando = Random(10000,90000),
-	    	    str[126];
+	    	new rando = Random(10000,90000);
+			new
+				str[128];
 			format(str, sizeof(str), "{1a7a3d}Accès autorisé, code de sécurité : "COLOR_HACK_CODE" %s", rando);
 			SendClientMessage(playerid, -1, str);
 
@@ -614,7 +628,6 @@ public Timerpiratage(playerid)
 	return 1;
 }
 
-forward TimerPerceuse();
 public TimerPerceuse()
 {
 	SendClientMessageToAll(-1, "La perceuse s'est arreté... tout semble s'être bien deroulé");
@@ -622,7 +635,6 @@ public TimerPerceuse()
 	return 1;
 }
 
-forward Timerc4(playerid);
 public Timerc4(playerid)
 {
 	SendClientMessage(playerid, -1, "C4 posé, celui-ci a explosé");
@@ -645,7 +657,6 @@ stock IsBraquageAvailable()
 }
 
 
-forward PlayAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z, link[]);
 public PlayAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z, link[])
 {
 	for(new i = 0, j = GetPlayerPoolSize(); i <= j; i++)
@@ -658,7 +669,6 @@ public PlayAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z, link[])
 	return 1;
 }
 
-forward StopAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z);
 public StopAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z)
 {
     for(new i = 0, j = GetPlayerPoolSize(); i <= j; i++)
@@ -671,7 +681,6 @@ public StopAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z)
 	return 1;
 }
 
-forward Timer1s();
 public Timer1s()
 {
 	if(Banque[alarm])
@@ -688,6 +697,7 @@ public Timer1s()
 			if(Banque[timergrill] == 15)
 			{
 			    SendClientMessageToAll(-1, "La grille va se fermer dans 15 secondes !");
+			    SendMessageInRange(10.0,GTRPGrillClosed[0][px], GTRPGrillClosed[0][py], GTRPGrillClosed[0][pz], -1, "La grille va se fermer dans %i secondes !", Banque[timergrill]);
 			}
 		}
 	    else if(Banque[timergrill] == 0)
@@ -698,6 +708,15 @@ public Timer1s()
 	}
 	return 1;
 }
+
+
+
+public Random(min, max)
+{
+    new a = random(max - min) + min;
+    return a;
+}
+
 
 stock   RandomTimeGrill()
 {
@@ -736,12 +755,8 @@ strtok(const string[], &index)
 	return result;
 }
 
-forward Random(min, max);
-public Random(min, max)
-{
-    new a = random(max - min) + min;
-    return a;
-}
+
+
 
 
 
