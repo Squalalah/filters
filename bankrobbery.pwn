@@ -24,6 +24,7 @@
 #define FILTERSCRIPT
 #include <a_samp>
 #include <sscanf2>
+#include <streamer>
 
 
 ///~~~~~~~~ DEFINES ~~~~~~~~///
@@ -60,6 +61,14 @@
 #define MSG_NOT_FRONT_BAR "{c42d2d}[ERREUR] Vous n'êtes pas devant le comptoir de la banque !"
 #define MSG_VAULT_ALREADY_OPEN "Le coffre est déjà ouvert !"
 #define MSG_ROBBERY_NOT_STARTED "{c42d2d}[ERREUR] Le braquage n'a pas démarré !"
+
+///~~~~~~~~ Arrays ~~~~~~~~///
+
+
+new
+	VaultDoor[0][3] = {float:-1979.5, float:136.60000610352, float:27.799999237061},
+	Vault[0][3] = {float:-1984.0999755859, float:137.69999694824, float:27.10000038147 },
+	BankBar[0][3] = {float:-1970.0134, float:137.7848, float:27.6875};
 
 
 
@@ -141,12 +150,12 @@ public OnFilterScriptInit()
 		bagbankvalue[i] = 0;
 	}
 	
-	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, -1979.5, 136.60000610352, 27.799999237061, 40.0, 0, 0);
-	label[1] = Create3DTextLabel("Position coffre banque", 0x008080FF, -1984.0999755859, 137.69999694824, 27.10000038147, 40.0, 0, 0);
-	label[2] = Create3DTextLabel("Position pc pirater", 0x008080FF, -1970.0134,137.7848,27.6875, 40.0, 0, 0);
+	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2], 40.0, 0, 0);
+	label[1] = Create3DTextLabel("Position coffre banque", 0x008080FF, Vault[0][0], Vault[0][1], Vault[0][2], 40.0, 0, 0);
+	label[2] = Create3DTextLabel("Position pc pirater", 0x008080FF, BankBar[0][0],BankBar[0][1],BankBar[0][2], 40.0, 0, 0);
 	
-	Banque[vaultdoor] = CreateObject(2634, -1979.5, 136.60000610352, 27.799999237061, 0.0, 0.0, -90.0);
-	Banque[moneyobject] = CreateObject(1550, -1984.0999755859, 137.69999694824, 27.10000038147, 0.0, 0.0, 0.0);
+	Banque[vaultdoor] = CreateDynamicObject(2634, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2], 0.0, 0.0, 180.0000000);
+	Banque[moneyobject] = CreateDynamicObject(1550, Vault[0][0], Vault[0][1], Vault[0][2], 0.0, 0.0, 180.0000000);
 
 	return 1;
 }
@@ -187,9 +196,9 @@ public OnPlayerText(playerid, text[])
 
 public OnPlayerCommandText(playerid, cmdtext[])
 {
-	if (strcmp("/testposerc4", cmdtext, true) == 0)
+	if (strcmp("/poserc4", cmdtext, true) == 0)
 	{
-		if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
+		if(!IsPlayerInRangeOfPoint(playerid, 2.0, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		//Si le joueur est à la banque, à la porte du coffre fort.
   		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, MSG_ROBBERY_NOT_STARTED);
 	    if(c4[playerid] != 3) return SendClientMessage(playerid, -1, "Vous n'avez pas 3 pains de c4 sur vous !");
@@ -206,16 +215,16 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 
-	if (strcmp("/testgetc4", cmdtext, true) == 0)
+	if (strcmp("/getc4", cmdtext, true) == 0)
 	{
 	    SendClientMessage(playerid, -1, "Vous avez obtenu 3 pains de C4");
 	    c4[playerid] = 3;
 	    return 1;
 	}
 	
-	if (strcmp("/testposerperceuse", cmdtext, true) == 0)
+	if (strcmp("/poserperceuse", cmdtext, true) == 0)
 	{
-	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		if(Banque[isDrilling]) return SendClientMessage(playerid, -1, "Une perceuse est déjà en marche !");
 		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, MSG_VAULT_ALREADY_OPEN);
 
@@ -226,9 +235,9 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 	
-	if(strcmp("/testpirater", cmdtext, true) == 0)
+	if(strcmp("/pirater", cmdtext, true) == 0)
 	{
-	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1970.0134,137.7848,27.6875)) return SendClientMessage(playerid, COLOR_ORANGE, MSG_NOT_FRONT_BAR);
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, BankBar[0][0], BankBar[0][1], BankBar[0][2])) return SendClientMessage(playerid, COLOR_ORANGE, MSG_NOT_FRONT_BAR);
 	    if(!Banque[isBraquage]) return SendClientMessage(playerid, COLOR_ORANGE, MSG_ROBBERY_NOT_STARTED);
 	    if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a coupé l'accès aux données");
 	    if(Banque[ishacking]) return SendClientMessage(playerid, COLOR_ORANGE, "L'ordinateur est déjà en cours de piratage !");
@@ -241,7 +250,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 
-	if(strcmp("/testalarme", cmdtext, true) == 0)
+	if(strcmp("/alarme", cmdtext, true) == 0)
 	{
 	    if(!Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme est déjà coupée !");
 
@@ -250,12 +259,12 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 	
-	if(strcmp("/testcode", cmdtext, true, 5) == 0)
+	if(strcmp("/code", cmdtext, true, 5) == 0)
 	{
 	    new
 	        mdp;
 		if(sscanf(cmdtext[6], "i", mdp)) return SendClientMessage(playerid, -1, "Utilisation : /code <code>");
-		if(!IsPlayerInRangeOfPoint(playerid, 2.0, -1979.5, 136.60000610352, 27.799999237061)) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
+		if(!IsPlayerInRangeOfPoint(playerid, 2.0, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, MSG_ROBBERY_NOT_STARTED);
 		if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a desactivé l'ouverture de la porte magnétiquement");
 		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, MSG_VAULT_ALREADY_OPEN);
@@ -279,13 +288,13 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		
 	    return 1;
 	}
-	if(strcmp("/testbraquage", cmdtext, true) == 0)
+	if(strcmp("/braquage", cmdtext, true) == 0)
 	{
 	    if(IsBraquageAvailable()) return SendClientMessage(playerid, -1, "Le braquage de banque est disponible !");
 	    else return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible !");
 	}
 	
-	if(strcmp("/testposerbutin", cmdtext, true) == 0)
+	if(strcmp("/poserbutin", cmdtext, true) == 0)
 	{
 	    if(bagbank[playerid] == -1) return SendClientMessage(playerid, -1, "Vous n'avez aucun sac de butin !");
 	    if(bagbankvalue[playerid] <= 0) return SendClientMessage(playerid, -1, "Votre sac de butin est vide !");
@@ -297,7 +306,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	 	DestroyObject(bagbank[playerid]);
 		GetPlayerPos(playerid, pos[0], pos[1], pos[2]);
 	 	
-		bags[0][bagid] = CreateObject(1550, pos[0]+2, pos[1], pos[2], 0.0, 0.0, 0.0);
+		bags[0][bagid] = CreateDynamicObject(1550, pos[0]+2, pos[1], pos[2], 0.0, 0.0, 180.00000);
 		bags[0][bagcontent] = bagbankvalue[playerid];
 		bags[0][bagidpickup] = CreatePickup(1210, 8, pos[0]+2, pos[1], pos[2], GetPlayerVirtualWorld(playerid));
 		
@@ -306,8 +315,8 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		bagbankvalue[playerid] = 0;
 		return 1;
 	}
-	if(strcmp("/testfermer", cmdtext, true) == 0) return MoveObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
-	if(strcmp("/testarme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
+	if(strcmp("/fermer", cmdtext, true) == 0) return MoveObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
+	if(strcmp("/arme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
 	return 0;
 }
 
@@ -378,7 +387,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	
 	if(PRESSED(KEY_NO))
 	{
-	    if(IsPlayerInRangeOfPoint(playerid, 2.0, -1984.0999755859, 137.69999694824, 27.10000038147)) //Si le joueur est dans le coffre
+	    if(IsPlayerInRangeOfPoint(playerid, 2.0, Vault[0][0], Vault[0][1], Vault[0][2])) //Si le joueur est dans le coffre
 	    {
 	        if(!Banque[isBraquage]) return 1;
 	        if(iscollecting[playerid]) return 1;
@@ -403,7 +412,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
             return 1;
 	    }
 	    
-	    if(IsPlayerInRangeOfPoint(playerid, 3.0, -1979.5999755859, 136.30000305176, 27.799999237061)) //Si le joueur est devant la porte du coffre qui a été percé !
+	    if(IsPlayerInRangeOfPoint(playerid, 3.0, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2])) //Si le joueur est devant la porte du coffre qui a été percé !
 	    {
 	        if(!Banque[isBraquage]) return 1;
 	        if(!Banque[isDrilling]) return 1;
@@ -419,7 +428,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	
 	if(PRESSED(KEY_SECONDARY_ATTACK)) // Si il appuie sur ENTRER
 	{
-	    if(IsPlayerInRangeOfPoint(playerid, 2.0, -1984.0999755859, 137.69999694824, 27.10000038147)) //Si le joueur est dans le coffre
+	    if(IsPlayerInRangeOfPoint(playerid, 2.0, Vault[0][0], Vault[0][1], Vault[0][2])) //Si le joueur est dans le coffre
 	    {
 	        if(!Banque[isBraquage]) return 1;
 	        if(!iscollecting[playerid]) return 1;
@@ -507,7 +516,7 @@ public Timerpiratage(playerid)
 		{
 		    SendClientMessage(playerid, COLOR_ALARM, "Durant la tentative de piratage, les services ont détectés une intrusion et l'alarme a été activé !");
 		    Banque[alarm] = true;
-		    PlayAudioStreamInRange(60.0, -1969.6277, 137.9382, 27.6875, "https://gtrp.fr/media/uploads/alarmbank.mp3");
+		    PlayAudioStreamInRange(60.0, BankBar[0][0], BankBar[0][1], BankBar[0][2], "https://gtrp.fr/media/uploads/alarmbank.mp3");
 		}
 	}
 	Banque[ishacking] = false;
@@ -530,12 +539,13 @@ public Timerc4(playerid)
 	SendClientMessage(playerid, -1, "C4 posé, celui-ci a explosé");
 	SendClientMessage(playerid, -1, "En entendant un énorme bruit d'explosion, les voisins ont appelés la police");
 	SendClientMessageToAll(-1, "[DEBUG] la porte s'ouvre !");
+	PlayAudioStreamInRange(60.0, BankBar[0][0], BankBar[0][1], BankBar[0][2], "https://gtrp.fr/media/uploads/alarmbank.mp3");
 	
 	Banque[isExploding] = false;
 	Banque[isVaultOpen] = true; //Le coffre est ouvert !
 	
 	MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
-	CreateExplosion(-1979.5999755859, 136.30000305176, 27.799999237061, 12, 5.0);
+	CreateExplosion(VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2], 12, 5.0);
 	
 }
 
