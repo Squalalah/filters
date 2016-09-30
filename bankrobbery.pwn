@@ -45,10 +45,12 @@
 #define TIMERPERCEUSE 10000 //Temps avant que la perceuse n'ouvre le coffre (en millisecondes)
 #define TIMERHACKING 10000 //Temps avant que le piratage se finisse (en millisecondes)
 #define TIMERC4EXPLODE 10 //Temps avant que le C4 n'explose (en secondes)
-#define TIMERALARM 19 //Temps après lequel l'alarme se relance
+#define TIMERGRILLCLOSED 20 //Temps minimum avant que la grille de la banque ne se ferme
+#define TIMERGRILLCLOSED_MAX 10 //Temps maximum avant que la grille de la banque ne se ferme
+#define TIMERALARM 19 //Temps après lequel l'alarme se relance (le son)
 #define ERROR_BANKCODE 3 //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
-#define MINUTE_BANK_ROB_WAIT 120 //Nombre de minutes necessaires à attendre entre deux braquages
-#define SECOND_GRAB_MONEY 30 //Nombres de secondes maximum avant l'interdiction de reprendre de l'argent dans le coffre-fort
+#define MINUTE_BANK_ROB_WAIT 120 //Nombre de minutes necessaires à attendre entre deux braquages.
+#define SECOND_GRAB_MONEY 30 //Nombres de secondes maximum avant l'interdiction de reprendre de l'argent dans le coffre-fort.
 
 #define MAX_BAGS 2 //définit le nombre de sac de butin maximum en même temps
 
@@ -65,14 +67,66 @@
 ///~~~~~~~~ Arrays ~~~~~~~~///
 
 
+enum bPos
+{
+	Float:px,
+	Float:py,
+	Float:pz,
+	Float:rx,
+	Float:ry,
+	Float:rz,
+	vw
+};
+
 new
 	VaultDoor[0][3] = {float:-1979.5, float:136.60000610352, float:27.799999237061},
 	Vault[0][3] = {float:-1984.0999755859, float:137.69999694824, float:27.10000038147 },
-	BankBar[0][3] = {float:-1970.0134, float:137.7848, float:27.6875};
+	BankBar[0][3] = {float:-1970.0134, float:137.7848, float:27.6875},
 
+	GTRPVaultDoor[][bPos] = {
+	{1591.92883, 2390.48071, 1137.10815, 0.0, 0.0, 90.00000, 13}
+	},
+	
+	GTRPVault[][bPos] = {
+	{1595.7462, 2392.6125, 1136.6624, 0.0, 0.0, 0.0, 13}
+	},
 
+	GTRPBankHack[][bPos] = {
+	{1577.09680, 2405.28979, 1139.88013, 0.0, 0.0, 0.0, 13}
+	},
 
+	GTRPVaultDoorExplode[][bPos] ={
+	{1593.32300, 2390.50952, 1135.71362,90.00000, -4.00000, 88.00000, 13}
+	},
+
+	GTRPVaultDoorOpened[][bPos] = {
+	{1590.98584, 2389.64233,1137.10815,0.00000, 0.00000,  163.03896, 13}
+	},
+
+	GTRPVaultDigiCode[][bPos] = {
+	{ 1591.05286,  2389.51416,  1137.37585, 0.0, 0.0, 0.0, 13}
+	},
+
+	GTRPPosDisableAlarm[][bPos] = {
+	{ 1579.31958,  2403.80371,  1140.46191, 0.0, 0.0, 0.0, 13}
+	},
+
+	GTRPPosActor[][bPos] = {
+	{ 1585.2771,  2417.8167,  1140.0757,  270.0000, 0.0, 0.0, 13}
+	},
+	
+	GTRPGrillOpen[][bPos] = {
+	{1579.17566, 2400.87280, 1145.25708,  0.00000, 0.00000, 0.00000, 13}
+	},
+	
+	GTRPGrillClosed[][bPos] = {
+	{1579.17566, 2400.87280, 1138.52014, 0.00000, 0.00000, 0.00000, 13}
+	};
+
+	
 ///~~~~~~~~ ENUMS ~~~~~~~~///
+
+
 
 enum
 	bInfos
@@ -92,11 +146,14 @@ enum
 	timergrabmoney,   //Variable contenant le "timer" (GetTickCount), permettant de laisser x secondes au braqueur pour prendre l'argent.
 	timerbraquage,   // Variable contenant le "timer" (GetTickCount) avant de repermettre le braquage
 	timeralarm,     // Variable permettant de relancer l'alarme.
+	timergrill,    // Variable permettant de fermer la grille aléatoirement.
 	code,          //Variable stockant le code généré si le piratage réussit
 	errorcode, 	  //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
 	vaultvalue,  //Variable stockant le contenu de la banque (en argent pour les braqueurs)
 	vaultdoor,  //Variable contenant l'id de l'objet de la porte
+	vaultgrill,  
 	moneyobject//Variable contenant l'id de l'objet du sac
+
 	
 };
 
@@ -125,7 +182,8 @@ new
 
 public OnFilterScriptInit()
 {
-	Banque[actorID] = CreateActor(0, -1973.1815,137.6681,27.6875,267.0490); // Créer un acteur et place son ID dans le tableau Actor (index 0)
+	Banque[actorID] = CreateActor(240, GTRPPosActor[0][px], GTRPPosActor[0][py],GTRPPosActor[0][pz],GTRPPosActor[0][rx]);
+	SetActorVirtualWorld(Banque[actorID], GTRPPosActor[0][vw]);
 	Banque[isActorFreeze] = false;
 	Banque[isBraquage] = false;
 	Banque[isVaultOpen] = false;
@@ -139,7 +197,8 @@ public OnFilterScriptInit()
 	Banque[grabbingMoney] = -1;
 	Banque[timerbraquage] = 0;
 	Banque[timeralarm] = TIMERALARM;
-	
+	Banque[timergrill] = -1;
+
 	SetTimer("Timer1s", 1000, true);
 
 	print("FS bankrobbery lancé");
@@ -150,13 +209,14 @@ public OnFilterScriptInit()
 		bagbankvalue[i] = 0;
 	}
 	
-	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2], 40.0, 0, 0);
-	label[1] = Create3DTextLabel("Position coffre banque", 0x008080FF, Vault[0][0], Vault[0][1], Vault[0][2], 40.0, 0, 0);
-	label[2] = Create3DTextLabel("Position pc pirater", 0x008080FF, BankBar[0][0],BankBar[0][1],BankBar[0][2], 40.0, 0, 0);
+	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz], 40.0, GTRPVaultDoor[0][vw], 0);
+	label[1] = Create3DTextLabel("Position coffre banque", 0x008080FF, GTRPVault[0][px], GTRPVault[0][py], GTRPVault[0][pz], 40.0, GTRPVaultDoor[0][vw], 0);
+	label[2] = Create3DTextLabel("Position pc pirater", 0x008080FF, GTRPBankHack[0][px],GTRPBankHack[0][py],GTRPBankHack[0][pz], 40.0, GTRPVaultDoor[0][vw], 0);
 	
-	Banque[vaultdoor] = CreateDynamicObject(2634, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2], 0.0, 0.0, 180.0000000);
-	Banque[moneyobject] = CreateDynamicObject(1550, Vault[0][0], Vault[0][1], Vault[0][2], 0.0, 0.0, 180.0000000);
-
+	
+	Banque[vaultdoor] = CreateDynamicObject(2634, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz],  GTRPVaultDoor[0][rx],  GTRPVaultDoor[0][ry], GTRPVaultDoor[0][rz]);
+	Banque[moneyobject] = CreateDynamicObject(1550, GTRPVault[0][px], GTRPVault[0][py], GTRPVault[0][pz], 0.0, 0.0, 180.0000000);
+	Banque[vaultgrill] = CreateDynamicObject(971, 	GTRPGrillOpen[0][px], 	GTRPGrillOpen[0][py], 	GTRPGrillOpen[0][pz], 	GTRPGrillOpen[0][rx], 	GTRPGrillOpen[0][ry], GTRPGrillOpen[0][rz]);
 	return 1;
 }
 
@@ -196,9 +256,9 @@ public OnPlayerText(playerid, text[])
 
 public OnPlayerCommandText(playerid, cmdtext[])
 {
-	if (strcmp("/poserc4", cmdtext, true) == 0)
+	if (strcmp("/testposerc4", cmdtext, true) == 0)
 	{
-		if(!IsPlayerInRangeOfPoint(playerid, 2.0, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
+		if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		//Si le joueur est à la banque, à la porte du coffre fort.
   		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, MSG_ROBBERY_NOT_STARTED);
 	    if(c4[playerid] != 3) return SendClientMessage(playerid, -1, "Vous n'avez pas 3 pains de c4 sur vous !");
@@ -215,16 +275,16 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 
-	if (strcmp("/getc4", cmdtext, true) == 0)
+	if (strcmp("/testgetc4", cmdtext, true) == 0)
 	{
 	    SendClientMessage(playerid, -1, "Vous avez obtenu 3 pains de C4");
 	    c4[playerid] = 3;
 	    return 1;
 	}
 	
-	if (strcmp("/poserperceuse", cmdtext, true) == 0)
+	if (strcmp("/testposerperceuse", cmdtext, true) == 0)
 	{
-	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		if(Banque[isDrilling]) return SendClientMessage(playerid, -1, "Une perceuse est déjà en marche !");
 		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, MSG_VAULT_ALREADY_OPEN);
 
@@ -235,9 +295,9 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 	
-	if(strcmp("/pirater", cmdtext, true) == 0)
+	if(strcmp("/testpirater", cmdtext, true) == 0)
 	{
-	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, BankBar[0][0], BankBar[0][1], BankBar[0][2])) return SendClientMessage(playerid, COLOR_ORANGE, MSG_NOT_FRONT_BAR);
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPBankHack[0][px], GTRPBankHack[0][py], GTRPBankHack[0][pz])) return SendClientMessage(playerid, COLOR_ORANGE, MSG_NOT_FRONT_BAR);
 	    if(!Banque[isBraquage]) return SendClientMessage(playerid, COLOR_ORANGE, MSG_ROBBERY_NOT_STARTED);
 	    if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a coupé l'accès aux données");
 	    if(Banque[ishacking]) return SendClientMessage(playerid, COLOR_ORANGE, "L'ordinateur est déjà en cours de piratage !");
@@ -250,21 +310,29 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 
-	if(strcmp("/alarme", cmdtext, true) == 0)
+	if(strcmp("/testalarme", cmdtext, true) == 0)
 	{
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPPosDisableAlarm[0][px], GTRPPosDisableAlarm[0][py], GTRPPosDisableAlarm[0][pz])) return SendClientMessage(playerid, -1, "Vous n'êtes pas au bon endroit !");
 	    if(!Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme est déjà coupée !");
-
 		Banque[alarm] = false;
+		MoveDynamicObject(Banque[vaultgrill], GTRPGrillOpen[0][px], GTRPGrillOpen[0][py], GTRPGrillOpen[0][pz], 1.0, GTRPGrillOpen[0][rx], GTRPGrillOpen[0][ry], GTRPGrillOpen[0][rz]);
+		for(new i = 0, j = GetPlayerPoolSize(); i <= j; i++)
+		{
+		    if(IsPlayerInRangeOfPoint(i, 60.0, GTRPBankHack[0][px], GTRPBankHack[0][py], GTRPBankHack[0][pz]))
+		    {
+		        StopAudioStreamForPlayer(i);
+		    }
+		}
 		SendClientMessage(playerid, COLOR_ALARM, "L'alarme a été desactivée !");
 		return 1;
 	}
 	
-	if(strcmp("/code", cmdtext, true, 5) == 0)
+	if(strcmp("/testcode", cmdtext, true) == 0)
 	{
 	    new
 	        mdp;
 		if(sscanf(cmdtext[6], "i", mdp)) return SendClientMessage(playerid, -1, "Utilisation : /code <code>");
-		if(!IsPlayerInRangeOfPoint(playerid, 2.0, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
+		if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVaultDigiCode[0][px], GTRPVaultDigiCode[0][py], GTRPVaultDigiCode[0][pz])) return SendClientMessage(playerid, -1, MSG_NOT_FRONT_VAULT);
 		if(!Banque[isBraquage]) return SendClientMessage(playerid, -1, MSG_ROBBERY_NOT_STARTED);
 		if(Banque[alarm]) return SendClientMessage(playerid, COLOR_ALARM, "L'alarme a desactivé l'ouverture de la porte magnétiquement");
 		if(Banque[isVaultOpen]) return SendClientMessage(playerid, -1, MSG_VAULT_ALREADY_OPEN);
@@ -276,25 +344,26 @@ public OnPlayerCommandText(playerid, cmdtext[])
 			{
 				Banque[errorcode] = 0;
 				Banque[alarm] = true;
-                PlayAudioStreamInRange(60.0, -1969.6277, 137.9382, 27.6875, "https://gtrp.fr/media/uploads/alarmbank.mp3");
+				RandomTimeGrill();
+				PlayAudioStreamInRange(60.0, GTRPVaultDigiCode[0][px], GTRPVaultDigiCode[0][py], GTRPVaultDigiCode[0][pz], "https://gtrp.fr/media/uploads/alarmbank.mp3");
 				return SendClientMessage(playerid, COLOR_ALARM, "Une alarme retentie, peut-être à cause de vos echecs répétés au mot de passe ?");
 
 			}
 			return 1;
 		}
 		SendClientMessage(playerid, -1, "[SUCCES] Code validé !");
-		MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
+		MoveDynamicObject(Banque[vaultdoor], GTRPVaultDoorOpened[0][px], GTRPVaultDoorOpened[0][py], GTRPVaultDoorOpened[0][pz], 3.0, GTRPVaultDoorOpened[0][rx], GTRPVaultDoorOpened[0][ry], GTRPVaultDoorOpened[0][rz]);
 		Banque[isVaultOpen] = true;
 		
 	    return 1;
 	}
-	if(strcmp("/braquage", cmdtext, true) == 0)
+	if(strcmp("/testbraquage", cmdtext, true) == 0)
 	{
 	    if(IsBraquageAvailable()) return SendClientMessage(playerid, -1, "Le braquage de banque est disponible !");
 	    else return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible !");
 	}
 	
-	if(strcmp("/poserbutin", cmdtext, true) == 0)
+	if(strcmp("/testposerbutin", cmdtext, true) == 0)
 	{
 	    if(bagbank[playerid] == -1) return SendClientMessage(playerid, -1, "Vous n'avez aucun sac de butin !");
 	    if(bagbankvalue[playerid] <= 0) return SendClientMessage(playerid, -1, "Votre sac de butin est vide !");
@@ -303,19 +372,19 @@ public OnPlayerCommandText(playerid, cmdtext[])
 			str[200];
 			
 		RemovePlayerAttachedObject(playerid, 0);
-	 	DestroyObject(bagbank[playerid]);
+	 	DestroyDynamicObject(bagbank[playerid]);
 		GetPlayerPos(playerid, pos[0], pos[1], pos[2]);
 	 	
 		bags[0][bagid] = CreateDynamicObject(1550, pos[0]+2, pos[1], pos[2], 0.0, 0.0, 180.00000);
 		bags[0][bagcontent] = bagbankvalue[playerid];
-		bags[0][bagidpickup] = CreatePickup(1210, 8, pos[0]+2, pos[1], pos[2], GetPlayerVirtualWorld(playerid));
+		bags[0][bagidpickup] = CreateDynamicPickup(1210, 8, pos[0]+2, pos[1], pos[2], GetPlayerVirtualWorld(playerid));
 		
 		format(str, sizeof(str), "Vous avez laissé tomber votre sac de butin contenant %i$.", bagbankvalue[playerid]);
 		SendClientMessage(playerid, -1, str);
 		bagbankvalue[playerid] = 0;
 		return 1;
 	}
-	if(strcmp("/fermer", cmdtext, true) == 0) return MoveObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
+	if(strcmp("/fermer", cmdtext, true) == 0) return MoveDynamicObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
 	if(strcmp("/arme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
 	return 0;
 }
@@ -339,13 +408,13 @@ public OnPlayerPickUpPickup(playerid, pickupid)
 	    if(pickupid == bags[i][bagidpickup])
 		{
 		    bagbank[playerid] = SetPlayerAttachedObject(playerid, 0, 1550, 1, 0.129999, -0.257999, 0.000000, 4.200002, 83.499992, 155.999984);
-		    DestroyObject(bags[i][bagid]);
+		    DestroyDynamicObject(bags[i][bagid]);
 		    bagbankvalue[playerid] = bags[0][bagcontent];
 			new
 			    str[126];
 			format(str, sizeof(str), "Vous avez trouvé %i$.", bagbankvalue[playerid]);
 			SendClientMessage(playerid, -1, str);
-			DestroyPickup(pickupid);
+			DestroyDynamicPickup(pickupid);
 		}
 	}
 	return 1;
@@ -387,7 +456,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	
 	if(PRESSED(KEY_NO))
 	{
-	    if(IsPlayerInRangeOfPoint(playerid, 2.0, Vault[0][0], Vault[0][1], Vault[0][2])) //Si le joueur est dans le coffre
+	    if(IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVault[0][px], GTRPVault[0][py], GTRPVault[0][pz])) //Si le joueur est dans le coffre
 	    {
 	        if(!Banque[isBraquage]) return 1;
 	        if(iscollecting[playerid]) return 1;
@@ -412,13 +481,13 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
             return 1;
 	    }
 	    
-	    if(IsPlayerInRangeOfPoint(playerid, 3.0, VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2])) //Si le joueur est devant la porte du coffre qui a été percé !
+	    if(IsPlayerInRangeOfPoint(playerid, 3.0, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz])) //Si le joueur est devant la porte du coffre qui a été percé !
 	    {
 	        if(!Banque[isBraquage]) return 1;
 	        if(!Banque[isDrilling]) return 1;
 	        if(Banque[isVaultOpen]) return 1;
 			SendClientMessageToAll(-1, "[DEBUG] La porte s'ouvre !");
-			MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
+			MoveDynamicObject(Banque[vaultdoor], GTRPVaultDoorOpened[0][px], GTRPVaultDoorOpened[0][py], GTRPVaultDoorOpened[0][pz], 3.0, GTRPVaultDoorOpened[0][rx], GTRPVaultDoorOpened[0][ry], GTRPVaultDoorOpened[0][rz]);
 			Banque[isVaultOpen] = false;
 			//Code pour moove la porte
 			return 1;
@@ -428,7 +497,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 	
 	if(PRESSED(KEY_SECONDARY_ATTACK)) // Si il appuie sur ENTRER
 	{
-	    if(IsPlayerInRangeOfPoint(playerid, 2.0, Vault[0][0], Vault[0][1], Vault[0][2])) //Si le joueur est dans le coffre
+	    if(IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVault[0][px], GTRPVault[0][py], GTRPVault[0][pz])) //Si le joueur est dans le coffre
 	    {
 	        if(!Banque[isBraquage]) return 1;
 	        if(!iscollecting[playerid]) return 1;
@@ -486,7 +555,8 @@ public Timeractor(id)
 {
 	SendClientMessageToAll(-1, "Le banquier a donné l'alerte grace au bouton sous le guichet");
 	Banque[alarm] = true;
-	PlayAudioStreamInRange(60.0, -1969.6277, 137.9382, 27.6875, "https://gtrp.fr/media/uploads/alarmbank.mp3");
+	RandomTimeGrill();
+	PlayAudioStreamInRange(60.0, GTRPVaultDigiCode[0][px], GTRPVaultDigiCode[0][py], GTRPVaultDigiCode[0][pz], "https://gtrp.fr/media/uploads/alarmbank.mp3");
 	ClearActorAnimations(id);
 	return 1;
 }
@@ -516,7 +586,8 @@ public Timerpiratage(playerid)
 		{
 		    SendClientMessage(playerid, COLOR_ALARM, "Durant la tentative de piratage, les services ont détectés une intrusion et l'alarme a été activé !");
 		    Banque[alarm] = true;
-		    PlayAudioStreamInRange(60.0, BankBar[0][0], BankBar[0][1], BankBar[0][2], "https://gtrp.fr/media/uploads/alarmbank.mp3");
+		    RandomTimeGrill();
+		    PlayAudioStreamInRange(60.0, GTRPBankHack[0][px], GTRPBankHack[0][py], GTRPBankHack[0][pz], "https://gtrp.fr/media/uploads/alarmbank.mp3");
 		}
 	}
 	Banque[ishacking] = false;
@@ -539,13 +610,15 @@ public Timerc4(playerid)
 	SendClientMessage(playerid, -1, "C4 posé, celui-ci a explosé");
 	SendClientMessage(playerid, -1, "En entendant un énorme bruit d'explosion, les voisins ont appelés la police");
 	SendClientMessageToAll(-1, "[DEBUG] la porte s'ouvre !");
-	PlayAudioStreamInRange(60.0, BankBar[0][0], BankBar[0][1], BankBar[0][2], "https://gtrp.fr/media/uploads/alarmbank.mp3");
+	PlayAudioStreamInRange(60.0, GTRPBankHack[0][px], GTRPBankHack[0][py], GTRPBankHack[0][pz], "https://gtrp.fr/media/uploads/alarmbank.mp3");
 	
 	Banque[isExploding] = false;
+	Banque[alarm] = true;
+	RandomTimeGrill();
 	Banque[isVaultOpen] = true; //Le coffre est ouvert !
 	
-	MoveObject(Banque[vaultdoor], -1979.5999755859, 139.30000305176, 27.799999237061, 3.0);
-	CreateExplosion(VaultDoor[0][0], VaultDoor[0][1], VaultDoor[0][2], 12, 5.0);
+	MoveDynamicObject(Banque[vaultdoor], GTRPVaultDoorExplode[0][px], GTRPVaultDoorExplode[0][py], GTRPVaultDoorExplode[0][pz], 3.0, GTRPVaultDoorExplode[0][rx], GTRPVaultDoorExplode[0][ry], GTRPVaultDoorExplode[0][rz]);
+	CreateExplosion(GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz], 12, 5.0);
 	
 }
 
@@ -578,10 +651,34 @@ public Timer1s()
 	    else
 	    {
 	        Banque[timeralarm] = TIMERALARM;
-	        PlayAudioStreamInRange(60.0, -1969.6277, 137.9382, 27.6875, "https://gtrp.fr/media/uploads/alarmbank.mp3");
+	        PlayAudioStreamInRange(60.0, GTRPBankHack[0][px], GTRPBankHack[0][py], GTRPBankHack[0][pz], "https://gtrp.fr/media/uploads/alarmbank.mp3");
+	    }
+	    if(Banque[timergrill] > 0)
+		{
+			Banque[timergrill]--;
+			if(Banque[timergrill] == 15)
+			{
+			    SendClientMessageToAll(-1, "La grille va se fermer dans 15 secondes !");
+			}
+		}
+	    else if(Banque[timergrill] == 0)
+	    {
+	        MoveDynamicObject(Banque[vaultgrill], GTRPGrillClosed[0][px], GTRPGrillClosed[0][py], GTRPGrillClosed[0][pz], 1.0, GTRPGrillClosed[0][rx], GTRPGrillClosed[0][ry], GTRPGrillClosed[0][rz]);
+			Banque[timergrill] = -1;
 	    }
 	}
 	return 1;
 }
+
+stock   RandomTimeGrill()
+{
+	new
+	    rand = random(TIMERGRILLCLOSED_MAX),
+	    result = TIMERGRILLCLOSED+rand;
+	    
+ 	return Banque[timergrill] = result;
+}
+
+
 
 
