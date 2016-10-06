@@ -1,11 +1,35 @@
 #define FILTERSCRIPT
 
 #include <a_samp>
+#define VERSION 0.1
+
+//~~~~~~~~~~~~~~~~~ Enums ~~~~~~~~~~~~~~~~~
+
+enum tInfos
+{
+	tID,
+	tX,
+	tY,
+	tZ,
+	tA,
+	
+
+
+
+};
+
+//~~~~~~~~~~~~~~~~ Arrays ~~~~~~~~~~~~~~~~~
+
+
+
+new
+	TrashCar[][tInfos];
+
 
 public OnFilterScriptInit()
 {
 	print("\n--------------------------------------");
-	print(" Blank Filterscript by your name here");
+	printf("Job éboueur GTRP V%f", VERSION);
 	print("--------------------------------------\n");
 	return 1;
 }
