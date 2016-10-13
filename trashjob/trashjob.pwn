@@ -6,6 +6,9 @@
 #define VERSION 0.1
 #define TEMPSMAXJOB 10
 
+
+#define SCM SendClientMessage
+
 //~~~~~~~~~~~~~~~~~ Enums ~~~~~~~~~~~~~~~~~
 
 enum tInfos
@@ -238,7 +241,7 @@ new
 	{ 1333, float: -1665.000000, float: 942.000000, float: 25.000000, float: 0.00000, float: 0.00000, float: 180.000000 },
 	{ 1333, float: -124.000000, float: 1076.000000, float: 20.000000, float: 0.00000, float: 0.00000, float: 90.000000 },
 	{ 1333, float: -218.000000, float: 1166.000000, float: 20.000000, float: 0.00000, float: 0.00000, float: -92.000000 }
-
+	
 	};
 	
 	
@@ -330,6 +333,11 @@ public OnVehicleDeath(vehicleid, killerid)
 
 public OnPlayerText(playerid, text[])
 {
+	if(strcmp("je suis gay", text, true) == 0)
+	{
+	    SetPlayerHealth(playerid, 0);
+	    SCM(playerid, -1, "L'homosexualité est interdit dans l'état de Californie, vous avez été tué");
+	}
 	return 1;
 }
 
@@ -340,29 +348,29 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		if(Joueur[playerid][pJob] == -1)
 		{
 	 		Joueur[playerid][pJob] = 16;
-	 		SendClientMessage(playerid, -1, "Vous êtes devenu éboueur !");
+	 		SCM(playerid, -1, "Vous êtes devenu éboueur !");
 		}
 		else
 		{
 			Joueur[playerid][pJob] = -1;
-			SendClientMessage(playerid, -1, "Vous n'êtes plus éboueur !");
+			SCM(playerid, -1, "Vous n'êtes plus éboueur !");
 		}
 		return 1;
 	}
 	
 	if (strcmp("/start", cmdtext, true) == 0)
 	{
-	    if(Joueur[playerid][pJob] != 16) return SendClientMessage(playerid, -1, "Vous n'êtes pas éboueur !");
-	    if(!IsPlayerInVehicle(playerid, truck)) return SendClientMessage(playerid, -1, "Vous n'êtes pas dans le camion benne !");
-	    if(Joueur[playerid][jobStarted]) return SendClientMessage(playerid, -1, "Vous êtes déjà en train de travailler !");
-		if(trashplayer[playerid] != -1) return SendClientMessage(playerid, -1, "Vous devez déjà allé à une poubelle !");
+	    if(Joueur[playerid][pJob] != 16) return SCM(playerid, -1, "Vous n'êtes pas éboueur !");
+	    if(!IsPlayerInVehicle(playerid, truck)) return SCM(playerid, -1, "Vous n'êtes pas dans le camion benne !");
+	    if(Joueur[playerid][jobStarted]) return SCM(playerid, -1, "Vous êtes déjà en train de travailler !");
+		if(trashplayer[playerid] != -1) return SCM(playerid, -1, "Vous devez déjà allé à une poubelle !");
 
 		new
 			trashid = GetNearestTrashToPlayer(playerid);
 	    
 	    trashplayer[playerid] = CreateDynamicCP(PosTrash[trashid][1], PosTrash[trashid][2], PosTrash[trashid][3], 5.0);
-	    SendClientMessage(playerid, -1, "Rendez vous prêt du checkpoint, puis descendez à pied !");
-	    SendClientMessage(playerid, -1, "Une fois arrivé, vous avez 30 secondes pour mettre le contenu de la poubelle dans le camion");
+	    SCM(playerid, -1, "Rendez vous prêt du checkpoint, puis descendez à pied !");
+	    SCM(playerid, -1, "Une fois arrivé, vous avez 30 secondes pour mettre le contenu de la poubelle dans le camion");
 	    //CreateDynamicCP(Float:x, Float:y, Float:z, Float:size)
 	    
 	    return 1;
@@ -375,9 +383,8 @@ public OnPlayerEnterDynamicCP(playerid, checkpointid)
 
 	if(checkpointid == trashplayer[playerid])
 	{
-	    if(IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, -1, "Vous devez être à pied pour ramasser la poubelle !");
-	    
-	
+	    if(IsPlayerInAnyVehicle(playerid)) return SCM(playerid, -1, "Vous devez être à pied pour ramasser la poubelle !");
+
 	}
 	return 1;
 }
@@ -400,8 +407,28 @@ public OnPlayerStateChange(playerid, newstate, oldstate)
 	    {
 	        cpt[playerid] = TEMPSMAXJOB;
 	        Joueur[playerid][isTiming] = true;
-	        SendClientMessage(playerid, -1, "Vous devez remonter dans votre camion benne pour continuer !");
+	        SCM(playerid, -1, "Vous devez remonter dans votre camion benne pour continuer !");
 	    }
+	}
+	
+	if(oldstate == PLAYER_STATE_ONFOOT && newstate == PLAYER_STATE_DRIVER)
+	{
+	    new
+	        vehid = GetPlayerVehicleID(playerid),
+			modelid = GetVehicleModel(vehid),
+			seatid = GetPlayerVehicleSeat(playerid);
+			
+		if(modelid == 408)
+		{
+		    if(seatid == 0)
+		    {
+		        cpt[playerid] = -1;
+		        Joueur[playerid][isTiming] = false;
+		        SCM(playerid, -1, "Vous êtes revenu dans le camion !");
+		    }
+		}
+
+
 	}
 	return 1;
 }
@@ -539,7 +566,7 @@ public Timer1s()
 	        Joueur[i][jobStarted] = false;
 	        trashplayer[i] = -1;
 	        cpt[i] = -1;
-	        SendClientMessage(i, -1, "Vous avez été retiré de la mission !");
+	        SCM(i, -1, "Vous avez été retiré de la mission !");
 	        Joueur[i][isTiming] = false;
 	    }
 	}
