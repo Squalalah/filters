@@ -58,8 +58,9 @@
 #define KEY_AIM KEY_HANDBRAKE //On définit une touche "KEY_AIM" qui voudra dire "Touche pour viser, soit le clic droit".
 
 #define MAX_BANK_ACTOR 2
+#define MAX_BANK_TIME 4
 #define MONEYPERSEC 537 			 //Somme "donné à chaque seconde" pendant que le braqueur remplit son sac dans le coffre.(n'est pas donné chaque seconde, mais quand la personne arretera de remplir son sac)
-#define TIMERACTOR 9999 	    //Temps avant que l'acteur n'active l'alarme après avoir été braqué (en secondes)
+#define TIMERACTOR 30	    //Temps avant que l'acteur n'active l'alarme après avoir été braqué (en secondes)
 #define TIMERPERCEUSE 10 	   //Temps avant que la perceuse n'ouvre le coffre (en millisecondes)
 #define TIMERHACKING 10 		  //Temps avant que le piratage se finisse (en secondes)
 #define TIMERC4EXPLODE 10 		 //Temps avant que le C4 n'explose (en secondes)
@@ -92,6 +93,7 @@
 
 forward Random(min, max);
 forward Timer1s();
+forward Timer1m();
 forward StopAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z);
 forward PlayAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z, link[]);
 
@@ -106,22 +108,22 @@ enum
 	bool: isActorInjured[MAX_BANK_ACTOR],//Variable booléenne qui déclaré si l'acteur est touché (mort) ou non.
 	bool: isBraquage, 	 //Variable booléeenne déclarant si un braquage est en cours (true) ou non (false)
 	bool: isVaultOpen,  //Variable booléenne déclarant si le coffre est ouvert ou non.
-	bool: isDrilling,  //Variable booléenne déclarant si le coffre est en train d'être percé ou non.
+	//bool: isDrilling,  //Variable booléenne déclarant si le coffre est en train d'être percé ou non.
 	bool: isExploding,// Variable booléenne déclarant si la porte du coffre-fort est sur le point d'exploser ou non.
 	bool: alarm, 	 //Variable booléenne déclarant si l'alarme est activé ou non.
 	bool: ishacking,   //Variable booléenne déclarant si l'ordinateur du comptoir --> est en train d'être piraté <--
 	bool: ishacked,   //Variable booléenne déclarant si l'ordinateur du comptoir --> a déjà été piraté <--
 	bool: isUnlocked, //Variable booléenne déclarant si la porte est dévérouillé ou non (pour la perceuse)
 	grabbingMoney,   //Variable contenant l'ID du premier joueur ayant recolté l'argent.
-	timerperceuse,  //Variable stockant le timer pour que la perceuse ouvre le coffre
+	//timerperceuse,  //Variable stockant le timer pour que la perceuse ouvre le coffre
 	timeractor,    //Variable stockant le timer pour que l'acteur active l'alarme à la fin du timer
 	timersuspected,
 	timergrabmoney,   //Variable contenant le "timer" (GetTickCount), permettant de laisser x secondes au braqueur pour prendre l'argent.
-	timerbraquage,   // Variable contenant le "timer" (GetTickCount) avant de repermettre le braquage
 	timeralarm,     // Variable permettant de relancer l'alarme.
 	timergrill,    // Variable permettant de fermer la grille aléatoirement.
 	timerpiratage,// Variable permettant de pirater...
 	timerc4,
+	timerbraquage, // Variable contenant le temps avant de pouvoir rebraquer
 	hacker, //variable contenant l'ID du hacker
 	code,          //Variable stockant le code généré si le piratage réussit
 	errorcode, 	  //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
@@ -175,7 +177,7 @@ new
 	},
 
 	GTRPVaultDigiCode[][bPos] = {
-	{ 1591.05286,  2389.51416,  1137.37585, 0.0, 0.0, 0.0, 13}
+	{ 1591.82117,  2391.55933,  1137.21594, 0.0, 0.0, 0.0, 13}
 	},
 
 	GTRPPosDisableAlarm[][bPos] = {
@@ -201,8 +203,7 @@ new
 	GTRPPosImprimerie[][bPos] = {
 	{-1870.7598, -174.2585, 9.1700, 0.0, 0.0, 0.0, 0}
 	};
-
-
+	
 
 ///~~~~~~~~ VARS ~~~~~~~~///
 
@@ -245,12 +246,11 @@ public OnFilterScriptInit()
 	Banque[isActorFreeze][1] = false;
 	Banque[isBraquage] = false;
 	Banque[isVaultOpen] = false;
-	Banque[isDrilling] = false;
+	//Banque[isDrilling] = false;
 	Banque[alarm] = false;
 	Banque[ishacking] = false;
 	Banque[ishacked] = false;
 	Banque[isExploding] = false;
-	Banque[isActorInjured] = false;
 	Banque[vaultvalue] = 200000;
 	Banque[errorcode] = 0;
 	Banque[grabbingMoney] = -1;
@@ -258,7 +258,7 @@ public OnFilterScriptInit()
 	Banque[timeralarm] = TIMERALARM;
 	Banque[timergrill] = -1;
 	Banque[timerc4] = -1;
-	Banque[timerperceuse] = -1;
+	//Banque[timerperceuse] = -1;
 	Banque[timerpiratage] = -1;
 	Banque[hacker] = -1;
 	Banque[timeractor] = -1;
@@ -268,6 +268,7 @@ public OnFilterScriptInit()
 	ApplyActorAnimation(Banque[actorID][1], "FOOD", "FF_Dam_Left", 4.1, 0, 0, 0, 1, 0);
 	
 	SetTimer("Timer1s", 1000, true);
+	SetTimer("Timer1m", 60000, true);
 
 	print("FS bankrobbery lancé");
 	label[0] = Create3DTextLabel("Position porte coffre banque", 0x008080FF, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz], 10.0, GTRPVaultDoor[0][vw], 0);
@@ -331,7 +332,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	    if(c4[playerid] != 3) return MSG_NO_C4
 	    if(Banque[isVaultOpen]) return SendClientMessage(playerid, COLOR_ORANGE, "Pourquoi vouloir détruire une porte ouvert ?!");
 	    if(Banque[isExploding]) return SendClientMessage(playerid, COLOR_ORANGE, "3 pains de C4 sont posés sur la porte et émmètent un bip de plus en plus fort...");
-		if(!Banque[isActorInjured][1] && !Banque[isActorFreeze][1])
+		if(!Banque[isActorInjured][1] && !Banque[isActorFreeze][1] && !Banque[alarm])
 		{
 		    BankAlarm();
 			SendMessageInRange(30.0, GTRPVaultDigiCode[0][px], GTRPVaultDigiCode[0][py], GTRPVaultDigiCode[0][pz], COLOR_ALARM, "Vous avez tenté de poser un pain de c4 devant un agent de securité...");
@@ -351,13 +352,13 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	    return 1;
 	}
 	
-	if (strcmp("/testposerperceuse", cmdtext, true) == 0)
+	/*if (strcmp("/testposerperceuse", cmdtext, true) == 0)
 	{
 	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz])) return MSG_NOT_FRONT_VAULT
 	    if(!Banque[isBraquage]) return MSG_ROBBERY_NOT_STARTED
 		if(Banque[isDrilling]) return SendClientMessage(playerid, COLOR_ORANGE, "Une perceuse est déjà en marche !");
 		if(Banque[isVaultOpen]) return MSG_VAULT_ALREADY_OPEN
-		if(!Banque[isActorInjured][1] && !Banque[isActorFreeze][1])
+		if(!Banque[isActorInjured][1] && !Banque[isActorFreeze][1] && !Banque[alarm])
 		{
 		    BankAlarm();
 			SendMessageInRange(30.0, GTRPVaultDigiCode[0][px], GTRPVaultDigiCode[0][py], GTRPVaultDigiCode[0][pz], COLOR_ALARM, "Vous avez tenté de poser une perceuse devant un agent de securité...");
@@ -368,7 +369,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		Banque[timerperceuse] = TIMERPERCEUSE;
 		
 		return 1;
-	}
+	}*/
 	
 	if(strcmp("/testpirater", cmdtext, true) == 0)
 	{
@@ -417,7 +418,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 			str[128];
 		if(sscanf(cmdtext, "si", str, mdp)) return Usage(playerid, "Usage: /code <code>");
 		
-        if(!Banque[isActorInjured][1] && !Banque[isActorFreeze][1])
+        if(!Banque[isActorInjured][1] && !Banque[isActorFreeze][1] && !Banque[alarm])
 		{
 		    BankAlarm();
 			SendMessageInRange(30.0, GTRPVaultDigiCode[0][px], GTRPVaultDigiCode[0][py], GTRPVaultDigiCode[0][pz], COLOR_ALARM, "Vous avez tenté d'écrire un code devant un agent de securité...");
@@ -481,7 +482,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		Banque[isActorFreeze][1] = false;
 		Banque[isBraquage] = false;
 		Banque[isVaultOpen] = false;
-		Banque[isDrilling] = false;
+		//Banque[isDrilling] = false;
 		Banque[alarm] = false;
 		Banque[ishacking] = false;
 		Banque[ishacked] = false;
@@ -494,7 +495,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		Banque[timeralarm] = TIMERALARM;
 		Banque[timergrill] = -1;
 		Banque[timerc4] = -1;
-		Banque[timerperceuse] = -1;
+		//Banque[timerperceuse] = -1;
 		Banque[timerpiratage] = -1;
 		Banque[hacker] = -1;
 		
@@ -539,33 +540,41 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 		{
 	     	if(id == Banque[actorID][0]) //Si l'ID récupéré est le même que dans le tableau Actor (index 0), donc le banquier.
 	     	{
-	     	    if(!IsBraquageAvailable() && Banque[isActorFreeze][0]) return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible (en cours)");
 				if(!Banque[isActorFreeze][0] && !Banque[isBraquage]) // Si le banquier n'a pas les mains en l'air et que le braquage n'est pas lancé
 				{
 	     	    	ApplyActorAnimation(Banque[actorID][0], "ped", "handsup", 4.1, 0, 0, 0, 1, 0);
+	     	    	ApplyActorAnimation(Banque[actorID][0], "ped", "handsup", 4.1, 0, 0, 0, 1, 0);
 	     	    	SendClientMessageToAll(-1, "Le banquier a été braqué !");
 	     	    	SendClientMessageToAll(-1, "[DEBUG] Le braquage a commencé, il faut maintenant : poser C4 sur le coffre, le percer ou pirater le PC du comptoir");
-	     	    	Banque[timeractor] = TIMERACTOR;//SetTimerEx("Timeractor", TIMERACTOR, false, "i", Banque[actorID][0]); // On lance un timer qui s'executera dans 15 secondes, si il n'a pas été rebraqué par la suite.
+	     	    	Banque[timeractor] = TIMERACTOR;
 	     	    	Banque[isActorFreeze][0] = true;
 	     	    	Banque[isBraquage] = true;
-					Banque[timerbraquage] = GetTickCount();
+					Banque[timerbraquage] = MAX_BANK_TIME;
 	     	    	return 1;
 				}
-				else if(Banque[isActorFreeze][0] && !Banque[alarm]) //Si il a déjà les mains en l'air et/ou que le braquage est lancé, on relance le timer avant qu'il active l'alarme.
+				else if(Banque[isActorFreeze][0] && !Banque[alarm] && !Banque[isActorInjured][0]) //Si il a déjà les mains en l'air et/ou que le braquage est lancé, on relance le timer avant qu'il active l'alarme.
 				{
 					Banque[timeractor] = TIMERACTOR;
-					SendClientMessage(playerid, -1, "Vous l'avez rebraqué !");
+					SendClientMessage(playerid, -1, "Vous avez rebraqué le banquier !");
 					return 1;
 				}
+				if(!IsBraquageAvailable() && Banque[isActorFreeze][0]) return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible (en cours)");
 	     	}
 	     	else if(id == Banque[actorID][1])
 	     	{
                 if(!IsBraquageAvailable() && Banque[isActorFreeze][0]) return SendClientMessage(playerid, -1, "Le braquage de banque est indisponible (en cours)");
-				if(!Banque[isActorFreeze][1])
+				if(!Banque[isActorFreeze][1] && !Banque[isActorInjured][1])
 				{
 		     	    Banque[isActorFreeze][1] = true;
 		     	    ApplyActorAnimation(Banque[actorID][1], "ped", "handsup", 4.1, 0, 0, 0, 1, 0);
+		     	    ApplyActorAnimation(Banque[actorID][1], "ped", "handsup", 4.1, 0, 0, 0, 1, 0);
 	     	    	SendClientMessageToAll(-1, "L'agent de sécurité a été braqué !");
+	     	    	if(!Banque[isBraquage])
+	     	    	{
+	     	    	    Banque[isBraquage] = true;
+	     	    	    SendClientMessageToAll(-1, "[DEBUG] Le braquage a commencé, il faut maintenant : poser C4 sur le coffre, le percer ou pirater le PC du comptoir");
+	     	    	}
+	     	    	return 1;
 				}
 	     	}
 		 }
@@ -596,10 +605,10 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
             return 1;
 	    }
 	    
-	    if(IsPlayerInRangeOfPoint(playerid, 3.0, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz])) //Si le joueur est devant la porte du coffre qui a été percé !
+	    /*if(IsPlayerInRangeOfPoint(playerid, 3.0, GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz])) //Si le joueur est devant la porte du coffre qui a été percé !
 	    {
 	        if(!Banque[isBraquage]) return 1;
-	        if(Banque[isDrilling]) return 1;
+	        //if(Banque[isDrilling]) return 1;
 	        if(Banque[isVaultOpen]) return 1;
 	        if(!Banque[isUnlocked]) return 1;
 			SendClientMessageToAll(-1, "[DEBUG] La porte s'ouvre !");
@@ -608,8 +617,8 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 
 			//Code pour moove la porte
 			return 1;
+	    }*/
 	    
-	    }
 	    if(IsPlayerInRangeOfPoint(playerid, 3.0, GTRPPosImprimerie[0][px], GTRPPosImprimerie[0][py], GTRPPosImprimerie[0][pz])) //Si il est devant la blanchisserie de billet !
 	    {
 	        if(hasrobmoney[playerid] && bagbank[playerid] == -1)  return Erreur(playerid, "Vous n'avez plus votre sac de butin !");
@@ -672,7 +681,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				TogglePlayerDynamicCP(playerid, checkpoint[playerid], true);
 				SendClientMessage(playerid, -1, "Rendez vous au checkpoint pour blanchir votre argent ! Une fois arrivé, appuyez sur N");
 			}
-        	Banque[isBraquage] = false;
 
 	        if(bagbank[playerid] == -1) bagbank[playerid] = SetPlayerAttachedObject(playerid, 0, 1550, 1, 0.129999, -0.257999, 0.000000, 4.200002, 83.499992, 155.999984);
 	        Banque[timergrabmoney] = GetTickCount();
@@ -699,10 +707,8 @@ public OnPlayerGiveDamageActor(playerid, damaged_actorid, Float: amount, weaponi
 		        ApplyActorAnimation(Banque[actorID][i], "CRACK",  "crckidle2", 4.1, 0, 0, 0, 1, 0);
 		        ApplyActorAnimation(Banque[actorID][i], "CRACK",  "crckidle2", 4.1, 0, 0, 0, 1, 0);
 			}
-		    else if(!Banque[isActorInjured][i])
+		    else
 		    {
-     			new
-    				cpt = 0;
 				ClearActorAnimations(Banque[actorID][i]);
 				ApplyActorAnimation(Banque[actorID][i], "CRACK",  "crckidle2", 4.1, 0, 0, 0, 1, 0);
 				ApplyActorAnimation(Banque[actorID][i], "CRACK",  "crckidle2", 4.1, 0, 0, 0, 1, 0);
@@ -711,15 +717,21 @@ public OnPlayerGiveDamageActor(playerid, damaged_actorid, Float: amount, weaponi
 				Banque[timersuspected] = TIMERSUSPECTED;
 				SendClientMessage(playerid, -1, "L'acteur est en PLS");
 				SetActorInvulnerable(Banque[actorID][i], true);
-				
-				for(new j = 0; j < MAX_BANK_ACTOR;j++)
-				{
-				    if(Banque[isActorInjured][j]) cpt++;
-				}
-
-				if(cpt == MAX_BANK_ACTOR) Banque[timersuspected] = -1;
-				return 1;
 		    }
+ 			new
+				cpt = 0;
+		    
+		    for(new j = 0; j < MAX_BANK_ACTOR;j++)
+			{
+   				if(Banque[isActorInjured][j]) cpt++;
+			}
+
+			if(cpt == MAX_BANK_ACTOR)
+			{
+				Banque[timersuspected] = -1;
+		     	Banque[timeractor] = -1;
+			}
+			return 1;
 		}
 	}
 
@@ -729,7 +741,7 @@ public OnPlayerGiveDamageActor(playerid, damaged_actorid, Float: amount, weaponi
 
 stock IsBraquageAvailable()
 {
-	if(GetTickCount() - Banque[timerbraquage] > MINUTE_BANK_ROB_WAIT*60000) return true;
+	if(Banque[timerbraquage] == 0) return true;
 	else return false;
 }
 
@@ -756,6 +768,44 @@ public StopAudioStreamInRange(Float:radius, Float:x, Float:y, Float:z)
 		}
 	}
 	return 1;
+}
+
+
+public Timer1m()
+{
+	if(Banque[timerbraquage] > 0)
+	{
+	    Banque[timerbraquage]--;
+	}
+	if(Banque[timerbraquage] == 0)
+	{
+	    for(new i = 0; i < MAX_BANK_ACTOR; i++)
+	    {
+		    Banque[isActorFreeze][i] = false;  //Variable booléenne déclarant si l'acteur au comptoir de la banque a les mains en l'air (true) ou non (false)
+			Banque[isActorInjured][i] = false;//Variable booléenne qui déclaré si l'acteur est touché (mort) ou non.
+			ClearActorAnimations(Banque[actorID][i]);
+		}
+		
+		Banque[isBraquage] = false;	 //Variable booléeenne déclarant si un braquage est en cours (true) ou non (false)
+		Banque[isVaultOpen] = false;//Variable booléenne déclarant si le coffre est ouvert ou non.
+		//Banque[isDrilling] = false;  //Variable booléenne déclarant si le coffre est en train d'être percé ou non.
+		Banque[isExploding] = false;// Variable booléenne déclarant si la porte du coffre-fort est sur le point d'exploser ou non.
+		Banque[alarm] = false;	 //Variable booléenne déclarant si l'alarme est activé ou non.
+		Banque[ishacking] = false;  //Variable booléenne déclarant si l'ordinateur du comptoir --> est en train d'être piraté <--
+		Banque[ishacked] = false;  //Variable booléenne déclarant si l'ordinateur du comptoir --> a déjà été piraté <--
+		Banque[isUnlocked] = false; //Variable booléenne déclarant si la porte est dévérouillé ou non (pour la perceuse)
+		Banque[grabbingMoney] = INVALID_PLAYER_ID;  //Variable contenant l'ID du premier joueur ayant recolté l'argent.
+		Banque[hacker] = INVALID_PLAYER_ID;
+		Banque[code] = 8913475;          //Variable stockant le code généré si le piratage réussit
+		Banque[errorcode] = 0; 	  //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
+		Banque[vaultvalue] = 200000;  //Variable stockant le contenu de la banque (en argent pour les braqueurs)
+
+		MoveDynamicObject(Banque[vaultdoor], GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz], 1.0, GTRPVaultDoor[0][rx], GTRPVaultDoor[0][ry], GTRPVaultDoor[0][rz]);
+		 //Variable contenant l'id de l'objet de la porte
+		MoveDynamicObject(Banque[vaultgrill], GTRPGrillOpen[0][px], GTRPGrillOpen[0][py], GTRPGrillOpen[0][pz], 1.0 , GTRPGrillOpen[0][rx], GTRPGrillOpen[0][ry], GTRPGrillOpen[0][rz]);
+	}
+	return 1;
+
 }
 
 public Timer1s()
@@ -791,11 +841,11 @@ public Timer1s()
 	    }
 	    if(Banque[timergrill] > 0)
 		{
-			Banque[timergrill]--;
 			if(Banque[timergrill] == 15)
 			{
 			    SendFormatMessageInRange(10.0,GTRPGrillClosed[0][px], GTRPGrillClosed[0][py], GTRPGrillClosed[0][pz], -1, "La grille va se fermer dans %i secondes !", Banque[timergrill]);
 			}
+			Banque[timergrill]--;
 		}
 	    if(Banque[timergrill] == 0)
 	    {
@@ -822,7 +872,7 @@ public Timer1s()
 		MoveDynamicObject(Banque[vaultdoor], GTRPVaultDoorExplode[0][px], GTRPVaultDoorExplode[0][py], GTRPVaultDoorExplode[0][pz], 3.0, GTRPVaultDoorExplode[0][rx], GTRPVaultDoorExplode[0][ry], GTRPVaultDoorExplode[0][rz]);
 		CreateExplosion(GTRPVaultDoor[0][px], GTRPVaultDoor[0][py], GTRPVaultDoor[0][pz], 12, 5.0);
 	}
-	if(Banque[timerperceuse] > 0)
+	/*if(Banque[timerperceuse] > 0)
 	{
 	  Banque[timerperceuse]--;
 	}
@@ -832,8 +882,8 @@ public Timer1s()
 		printf("[DEBUG] La porte est débloqué, elle s'ouvrira avec la touche N");
 		Banque[isUnlocked] = true;
 		Banque[timerperceuse]= -1;
-		Banque[isDrilling] = false;
-	}
+		//Banque[isDrilling] = false;
+	}*/
 	if(Banque[timerpiratage] > 0)
 	{
 		Banque[timerpiratage]--;
