@@ -31,12 +31,14 @@
 #include <streamer>
 
 
-///~~~~~~~~ DEFINES ~~~~~~~~///
+///~~~~~~~~ DEFINES FUNCTIONS ~~~~~~~~///
 
-//SendFormatMessageInRange(int:range, float:x, float:y, float:z, color, str[], args[])
+
 
 #define SendFormatMessage(%0,%1,%2,%3) \
 		(format(strformat, sizeof(strformat), (%2), %3), SendClientMessage((%0), (%1), strformat))
+
+//SendFormatMessageInRange(int:range, float:x, float:y, float:z, color, str[], args[])
 
 #define SendFormatMessageInRange(%0,%1,%2,%3,%4,%5,%6) \
 	for(new i = 0, j = GetPlayerPoolSize(); i <= j;i++) if(IsPlayerInRangeOfPoint(i,(%0),(%1),(%2),(%3))) \
@@ -45,6 +47,8 @@
 #define SendMessageInRange(%0,%1,%2,%3,%4,%5) \
 	for(new i = 0, j = GetPlayerPoolSize(); i <= j;i++) if(IsPlayerInRangeOfPoint(i,(%0),(%1),(%2),(%3))) \
 	    SendClientMessage(i,(%4), %5)
+
+///~~~~~~~~ DEFINES MACROS KEY ~~~~~~~~///
 
 #define HOLDING(%0) \
 	((newkeys & (%0)) == (%0)) //Définit le fait qu'une touche est ENFONCÉE
@@ -56,6 +60,9 @@
 	(%0 & (%1)) //Définit si une touche est pressée ACTUELLEMENT
 
 #define KEY_AIM KEY_HANDBRAKE //On définit une touche "KEY_AIM" qui voudra dire "Touche pour viser, soit le clic droit".
+
+
+///~~~~~~~~ DEFINES VARS ~~~~~~~~///
 
 #define MAX_BANK_ACTOR 2
 #define MAX_BANK_TIME 4
@@ -71,9 +78,9 @@
 #define ERROR_BANKCODE 3 	  	  //Nombre d'erreurs possible dans le code de la banque avant que l'alerte soit donnée.
 #define MINUTE_BANK_ROB_WAIT 120 //Nombre de minutes necessaires à attendre entre deux braquages.
 #define SECOND_GRAB_MONEY 30 	//Nombres de secondes maximum avant l'interdiction de reprendre de l'argent dans le coffre-fort.
-
-
 #define MAX_BAGS 2 //définit le nombre de sac de butin maximum en même temps
+
+///~~~~~~~~ DEFINES COLORS ~~~~~~~~///
 
 #define COLOR_ORANGE 0x9e5e1aFF
 #define COLOR_ALARM 0xc42d2dFF
@@ -81,6 +88,8 @@
 #define COLOR_HACK_CODE "{2c7f7f}"
 
 #define STRING_NORMAL 145
+
+///~~~~~~~~ DEFINES MSGS ~~~~~~~~///
 
 #define MSG_NOT_FRONT_VAULT Erreur(playerid, "[ERREUR] Vous n'êtes pas devant le coffre de la banque !");
 #define MSG_ROBBERY_NOT_STARTED Erreur(playerid, "[ERREUR] Le braquage n'a pas démarré !");
@@ -131,8 +140,6 @@ enum
 	vaultdoor,  //Variable contenant l'id de l'objet de la porte
 	vaultgrill,
 	moneyobject//Variable contenant l'id de l'objet du sac
-
-
 };
 
 enum bagInfos
@@ -473,8 +480,6 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		return 1;
 	}
 	
-	if(strcmp("/fermer", cmdtext, true) == 0) return MoveDynamicObject(Banque[vaultdoor], -1979.5, 136.60000610352, 27.799999237061, 3.0);
-	if(strcmp("/arme", cmdtext, true) == 0) return GivePlayerWeapon(playerid, 25, 9999);
 	if(strcmp("/testreset", cmdtext, true) == 0)
 	{
 	
@@ -655,7 +660,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			
 			if(result > Banque[vaultvalue])
 			{
-			    //GivePlayerMoney(playerid, Banque[vaultvalue]);
 				bagbankvalue[playerid] += Banque[vaultvalue];
 				money = Banque[vaultvalue];
 				Banque[vaultvalue] = 0;
@@ -663,7 +667,6 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			}
 			else
 			{
-			    //GivePlayerMoney(playerid, result);
 			    bagbankvalue[playerid] += result;
 			    money = result;
 			    Banque[vaultvalue] -= result;
@@ -796,7 +799,7 @@ public Timer1m()
 		Banque[isUnlocked] = false; //Variable booléenne déclarant si la porte est dévérouillé ou non (pour la perceuse)
 		Banque[grabbingMoney] = INVALID_PLAYER_ID;  //Variable contenant l'ID du premier joueur ayant recolté l'argent.
 		Banque[hacker] = INVALID_PLAYER_ID;
-		Banque[code] = 8913475;          //Variable stockant le code généré si le piratage réussit
+		Banque[code] = 891348275;          //Variable stockant le code généré si le piratage réussit
 		Banque[errorcode] = 0; 	  //Variable stockant le nombre d'echec du code, une fois qu'il atteint le nombre définit (DEFINE ERROR_BANKCODE), l'alarme se déclenche
 		Banque[vaultvalue] = 200000;  //Variable stockant le contenu de la banque (en argent pour les braqueurs)
 
