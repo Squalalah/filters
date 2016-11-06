@@ -23,7 +23,7 @@
 //~~~~~~~~~~~~ /DEFINES ~~~~~~~~~~~~~~~
 
 
-#define VERSION 0.1
+#define VERSION "0.2"
 
 #define MAX_PLANTS_PER_FACT 30 //Nombre max de plante pour une faction
 #define SCM SendClientMessage
@@ -36,10 +36,14 @@
 #define MIN_GRAINE_PERFECT 1 //Maximum de graine obtenu si la maturité est entre 100 et 110%
 #define POLICE_FAC_ID 4
 #define DIST 2.600000 //Range dans lequel doit être le joueur afin d'intérragir avec une plante
+#define MAX_TEMP 101 //Définit le niveau de température maximum pour la meth, (temperature max = MAX_TEMP*10, 6*10 = 60°max supporté avant explosion)
 
 #define MAX_GANGS 2 //Définit cb de factions peuvent créer/ramasser de la drogue
+#define MAX_LABO 2
 #define ID_FACTION_GANG_1 1 //Définit quel est l'ID de la premiere faction illégale pouvant PLANTER la drogue
 #define ID_FACTION_GANG_2 2 //Définit quel est l'ID de la deuxième faction illégale pouvant PLANTER la drogue
+#define DIALOG_DRUGLAB 600
+#define DIALOG_INT_REGULER 601
 
 //~~~~~~~~~~~~ /ENUMS ~~~~~~~~~~~~~~~~~
 
@@ -61,53 +65,86 @@ enum drugInfos
 	dFireTime
 }
 
+enum labInfos
+{
+	lID, //ID du labo
+	bool:isactive, //Si le labo est utilisé ou non
+	bool:isCooking, //Si la solution est sur le feu (cuisine)
+	lFaction, //l'id de la faction auquel le labo est lié
+	lTime, //Temps d'attente entre les étapes de recette
+	lStep, //Etape à laquelle le joueur est rendu pour la recette
+	lTemp, //Température
+	lNiveauReguler, // Niveau de température regulé par le joueur (0 à MAX_TEMP)
+	lCptTemp, //compteur comptant cb de temps est resté la solution sous la même température
+	hcl,
+	mu,
+	cs,
+	eau,
+	acide,
+	nbMeth,
+	nbLsd,
+}
+
 //~~~~~~~~~~~~~ /VARS ~~~~~~~~~~~~~~~~~
 
 
 new
-	Drogue[MAX_GANGS][MAX_PLANTS_PER_FACT][drugInfos];
+	Drogue[MAX_GANGS][MAX_PLANTS_PER_FACT][drugInfos],
+	Labo[MAX_LABO][labInfos];
 	
 new
 	pFaction[MAX_PLAYERS],
 	Graines[MAX_PLAYERS],
 	Feuilles[MAX_PLAYERS],
-	bool:isMakingMeth[MAX_PLAYERS];
+	bool:isMakingMeth[MAX_PLAYERS],
+	pHcl[MAX_PLAYERS],
+	pMu[MAX_PLAYERS],
+	pCs[MAX_PLAYERS],
+	pEau[MAX_PLAYERS],
+	pAcide[MAX_PLAYERS],
+	bool:pLoaded[MAX_PLAYERS];
 	
-new PlayerText:Textdraw0[MAX_PLAYERS];
-new PlayerText:Textdraw1[MAX_PLAYERS];
-new PlayerText:Textdraw2[MAX_PLAYERS];
-new PlayerText:Textdraw3[MAX_PLAYERS];
-new PlayerText:Textdraw4[MAX_PLAYERS];
-new PlayerText:Textdraw5[MAX_PLAYERS];
-new PlayerText:Textdraw6[MAX_PLAYERS];
-new PlayerText:Textdraw7[MAX_PLAYERS];
-new PlayerText:Textdraw8[MAX_PLAYERS];
-new PlayerText:Textdraw9[MAX_PLAYERS];
-new PlayerText:Textdraw10[MAX_PLAYERS];
-new PlayerText:Textdraw11[MAX_PLAYERS];
-new PlayerText:Textdraw12[MAX_PLAYERS];
-new PlayerText:Textdraw13[MAX_PLAYERS];
-new PlayerText:Textdraw14[MAX_PLAYERS];
-new PlayerText:Textdraw15[MAX_PLAYERS];
-new PlayerText:Textdraw16[MAX_PLAYERS];
-new PlayerText:Textdraw17[MAX_PLAYERS];
-new PlayerText:Textdraw18[MAX_PLAYERS];
-new PlayerText:Textdraw19[MAX_PLAYERS];
-new PlayerText:Textdraw20[MAX_PLAYERS];
-new PlayerText:Textdraw21[MAX_PLAYERS];
-new PlayerText:Textdraw22[MAX_PLAYERS];
-new PlayerText:Textdraw23[MAX_PLAYERS];
-new PlayerText:Textdraw24[MAX_PLAYERS];
-new PlayerText:Textdraw25[MAX_PLAYERS];
-new PlayerText:Textdraw26[MAX_PLAYERS];
-new PlayerText:Textdraw27[MAX_PLAYERS];
+new
+	PlayerText:Textdraw0[MAX_PLAYERS], //Interface
+	PlayerText:Textdraw1[MAX_PLAYERS], //Bouton Mettre HCL
+	PlayerText:Textdraw2[MAX_PLAYERS], // TEXTE HCL
+	PlayerText:Textdraw3[MAX_PLAYERS], //Bouton Mettre MU
+	PlayerText:Textdraw4[MAX_PLAYERS], // TEXTE MU
+	PlayerText:Textdraw5[MAX_PLAYERS], // TEXTE 0 DEGRER
+	PlayerText:Textdraw6[MAX_PLAYERS], // TEXTE THERMOMETRE
+	PlayerText:Textdraw7[MAX_PLAYERS], // BOUTON MONTER TEMP
+	PlayerText:Textdraw8[MAX_PLAYERS], // TEXTE MONTER TEMP
+	PlayerText:Textdraw9[MAX_PLAYERS], // BOUTON BAISSER TEMP
+	PlayerText:Textdraw10[MAX_PLAYERS], // TEXTE BAISSER TEMP
+	PlayerText:Textdraw11[MAX_PLAYERS], // TEXTE NIVEAU TEMP
+	PlayerText:Textdraw12[MAX_PLAYERS], // BOUTON 1/3 EAU
+	PlayerText:Textdraw13[MAX_PLAYERS], // TEXTE 1/3 EAU
+	PlayerText:Textdraw14[MAX_PLAYERS], // BOUTON 1/2 EAU
+	PlayerText:Textdraw15[MAX_PLAYERS], // TEXTE 1/2 EAU
+	PlayerText:Textdraw16[MAX_PLAYERS], // BOUTON 1/1 EAU
+	PlayerText:Textdraw17[MAX_PLAYERS], // TEXTE 1/1 EAU
+	PlayerText:Textdraw18[MAX_PLAYERS], // Interface FIOLE
+	PlayerText:Textdraw19[MAX_PLAYERS], // TEXTE FIOLE
+	PlayerText:Textdraw20[MAX_PLAYERS], // BOUTON AJOUTER A LA RECETTE
+	PlayerText:Textdraw21[MAX_PLAYERS], // TEXTE AJOUTER A LA RECETTE
+	PlayerText:Textdraw22[MAX_PLAYERS], // BOUTON 5 CUI CS
+	PlayerText:Textdraw23[MAX_PLAYERS], // TEXTE 5 CUI CS
+	PlayerText:Textdraw24[MAX_PLAYERS], // BOUTON 10 CUI CS
+	PlayerText:Textdraw25[MAX_PLAYERS], // TEXTE 10 CUI CS
+	PlayerText:Textdraw26[MAX_PLAYERS], // TXT MOITIER FIOLE HAUT REMPLIT
+	PlayerText:Textdraw27[MAX_PLAYERS], // TXT MOITIER FIOLE BAS REMPLIT
+	PlayerText:Textdraw28[MAX_PLAYERS], // BOUTON VIDER SOLUTION
+	PlayerText:Textdraw29[MAX_PLAYERS], // TEXTE VIDER SOLUTION
+	PlayerText:Textdraw30[MAX_PLAYERS],
+	PlayerText:Textdraw31[MAX_PLAYERS],
+	PlayerText:Textdraw32[MAX_PLAYERS];
 
 
-
-//~~~~~~~~~~~~~ /VARS ~~~~~~~~~~~~~~~~~
+//~~~~~~~~~~~~~ /FORWARDS ~~~~~~~~~~~~~~~~~
 
 
 forward Timer1s();
+forward Timer3s();
 
 
 
@@ -120,9 +157,8 @@ public OnFilterScriptInit()
 {
 	print("\n--------------------------------------");
 	print(" Système de drogue by Squalalah !");
-	printf("VERSION -> %f", VERSION);
+	printf("VERSION -> %s", VERSION);
 	print("--------------------------------------\n");
-	SendClientMessageToAll(-1, "Ce message prouvant l'homosexualité de Leïto annonce que le filterscript a bien été chargé !");
 	
 	for(new i = 0; i < MAX_PLANTS_PER_FACT;i++)
 	{
@@ -131,7 +167,39 @@ public OnFilterScriptInit()
 	    	Drogue[a][i][isactive] = false;
 		}
 	}
+	
+	for(new i = 0; i < MAX_LABO;i++)
+	{
+	    Labo[i][isactive] = false;
+	    Labo[i][lFaction] = i;
+	    Labo[i][lTime] = -1;
+	    Labo[i][lStep] = -1;
+	    Labo[i][lTemp] = 0;
+	    Labo[i][lNiveauReguler] = 0;
+		Labo[i][lCptTemp] = -1;
+		Labo[i][hcl] = 0;
+		Labo[i][mu] = 0;
+		Labo[i][cs] = 0;
+		Labo[i][eau] = 0;
+		Labo[i][acide] = 0;
+		Labo[i][isCooking] = false;
+		Labo[i][nbMeth] = 0;
+		Labo[i][nbLsd] = 0;
+	    printf(" Labo id %i - isactive %b - lFaction %i - lTime %i - lStep %i - lTemp %i - lNiveauReguler %i -", i, Labo[i][isactive], Labo[i][lFaction], Labo[i][lTime], Labo[i][lStep], Labo[i][lTemp], Labo[i][lNiveauReguler]);
+	}
+	
+	for(new i = 0, j = GetPlayerPoolSize(); i <= j; i++)
+	{
+		pFaction[i] = -1;
+		pLoaded[i] = false;
+		pHcl[i] = pMu[i] = pCs[i] = pEau[i] = pAcide[i] = 0;
+	}
+
+	
 	SetTimer("Timer1s", 1000, true);
+	SetTimer("Timer3s", 3000, true);
+	
+	SendClientMessageToAll(-1, "Ce message prouvant l'homosexualité de Leïto annonce que le filterscript a bien été chargé !");
 	return 1;
 }
 
@@ -349,6 +417,7 @@ public OnPlayerCommandText(playerid, cmdtext[])
 		Update3DTextLabelText(Drogue[idgang][id][dIdLabel], 0x008080FF, str);
 		
 		Drogue[idgang][id][arroser] = true;
+		Drogue[idgang][id][dNbArroser]++;
 		SCM(playerid, -1, "La plante a bien été arrosée !");
 		//printf("Plante arrosé dans Drogue[%i], id %i et arroser = %b", idgang, id, Drogue[idgang][id][arroser]);
 		return 1;
@@ -383,357 +452,22 @@ public OnPlayerCommandText(playerid, cmdtext[])
 	    
 	    return 1;
 	}
-	
-	if(strcmp("/init", cmdtext, true, 5) == 0)
-	{
-	    Textdraw0[playerid] = CreatePlayerTextDraw(playerid, 515.000000, 110.596298, "usebox");
-		PlayerTextDrawLetterSize(playerid, Textdraw0[playerid], 0.000000, 32.868511);
-		PlayerTextDrawTextSize(playerid, Textdraw0[playerid], 119.000000, 0.000000);
-		PlayerTextDrawAlignment(playerid, Textdraw0[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw0[playerid], 0);
-		PlayerTextDrawUseBox(playerid, Textdraw0[playerid], true);
-		PlayerTextDrawBoxColor(playerid, Textdraw0[playerid], 102);
-		PlayerTextDrawSetShadow(playerid, Textdraw0[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw0[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw0[playerid], 0);
 
-		Textdraw1[playerid] = CreatePlayerTextDraw(playerid, 140.000000, 132.325927, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw1[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw1[playerid], 88.666694, 23.229627);
-		PlayerTextDrawAlignment(playerid, Textdraw1[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw1[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw1[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw1[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw1[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw1[playerid], true);
-
-		Textdraw2[playerid] = CreatePlayerTextDraw(playerid, 140.666656, 135.229644, "Mettre HCL");
-		PlayerTextDrawLetterSize(playerid, Textdraw2[playerid], 0.449999, 1.600000);
-		PlayerTextDrawAlignment(playerid, Textdraw2[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw2[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw2[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw2[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw2[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw2[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw2[playerid], 1);
-
-		Textdraw3[playerid] = CreatePlayerTextDraw(playerid, 140.333343, 164.266662, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw3[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw3[playerid], 88.000000, 22.814819);
-		PlayerTextDrawAlignment(playerid, Textdraw3[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw3[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw3[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw3[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw3[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw3[playerid], true);
-
-		Textdraw4[playerid] = CreatePlayerTextDraw(playerid, 141.333358, 167.170364, "Mettre MU");
-		PlayerTextDrawLetterSize(playerid, Textdraw4[playerid], 0.449999, 1.600000);
-		PlayerTextDrawAlignment(playerid, Textdraw4[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw4[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw4[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw4[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw4[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw4[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw4[playerid], 1);
-
-		Textdraw5[playerid] = CreatePlayerTextDraw(playerid, 164.666641, 241.837020, "0 degrer");
-		PlayerTextDrawLetterSize(playerid, Textdraw5[playerid], 0.449999, 1.600000);
-		PlayerTextDrawAlignment(playerid, Textdraw5[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw5[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw5[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw5[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw5[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw5[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw5[playerid], 1);
-
-		Textdraw6[playerid] = CreatePlayerTextDraw(playerid, 144.666580, 218.192581, "Thermometre");
-		PlayerTextDrawLetterSize(playerid, Textdraw6[playerid], 0.449999, 1.600000);
-		PlayerTextDrawAlignment(playerid, Textdraw6[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw6[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw6[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw6[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw6[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw6[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw6[playerid], 1);
-
-		Textdraw7[playerid] = CreatePlayerTextDraw(playerid, 138.000000, 262.162963, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw7[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw7[playerid], 54.666656, 18.666656);
-		PlayerTextDrawAlignment(playerid, Textdraw7[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw7[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw7[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw7[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw7[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw7[playerid], true);
-
-		Textdraw8[playerid] = CreatePlayerTextDraw(playerid, 138.666671, 263.822174, "Monter Temp.");
-		PlayerTextDrawLetterSize(playerid, Textdraw8[playerid], 0.225000, 1.517037);
-		PlayerTextDrawAlignment(playerid, Textdraw8[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw8[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw8[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw8[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw8[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw8[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw8[playerid], 1);
-
-		Textdraw9[playerid] = CreatePlayerTextDraw(playerid, 200.666671, 261.748168, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw9[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw9[playerid], 52.666671, 19.081451);
-		PlayerTextDrawAlignment(playerid, Textdraw9[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw9[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw9[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw9[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw9[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw9[playerid], true);
-
-		Textdraw10[playerid] = CreatePlayerTextDraw(playerid, 202.333419, 262.992614, "Baisser Temp.");
-		PlayerTextDrawLetterSize(playerid, Textdraw10[playerid], 0.208333, 1.537777);
-		PlayerTextDrawAlignment(playerid, Textdraw10[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw10[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw10[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw10[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw10[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw10[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw10[playerid], 1);
-
-		Textdraw11[playerid] = CreatePlayerTextDraw(playerid, 161.000000, 297.422149, "Niveau : 0");
-		PlayerTextDrawLetterSize(playerid, Textdraw11[playerid], 0.250666, 1.566815);
-		PlayerTextDrawAlignment(playerid, Textdraw11[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw11[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw11[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw11[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw11[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw11[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw11[playerid], 1);
-
-		Textdraw12[playerid] = CreatePlayerTextDraw(playerid, 394.333343, 127.762962, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw12[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw12[playerid], 77.000000, 23.229621);
-		PlayerTextDrawAlignment(playerid, Textdraw12[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw12[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw12[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw12[playerid], 0);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw12[playerid], 255);
-		PlayerTextDrawFont(playerid, Textdraw12[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw12[playerid], true);
-
-		Textdraw13[playerid] = CreatePlayerTextDraw(playerid, 398.666687, 130.666656, "1/3 EAU");
-		PlayerTextDrawLetterSize(playerid, Textdraw13[playerid], 0.449999, 1.600000);
-		PlayerTextDrawAlignment(playerid, Textdraw13[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw13[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw13[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw13[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw13[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw13[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw13[playerid], 1);
-
-		Textdraw14[playerid] = CreatePlayerTextDraw(playerid, 394.666687, 155.970367, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw14[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw14[playerid], 76.666656, 18.251861);
-		PlayerTextDrawAlignment(playerid, Textdraw14[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw14[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw14[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw14[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw14[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw14[playerid], true);
-
-		Textdraw15[playerid] = CreatePlayerTextDraw(playerid, 398.999938, 156.799972, "1/2 EAU");
-		PlayerTextDrawLetterSize(playerid, Textdraw15[playerid], 0.449999, 1.600000);
-		PlayerTextDrawAlignment(playerid, Textdraw15[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw15[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw15[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw15[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw15[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw15[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw15[playerid], 1);
-
-		Textdraw16[playerid] = CreatePlayerTextDraw(playerid, 394.666687, 180.029632, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw16[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw16[playerid], 76.333312, 16.177764);
-		PlayerTextDrawAlignment(playerid, Textdraw16[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw16[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw16[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw16[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw16[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw16[playerid], true);
-
-		Textdraw17[playerid] = CreatePlayerTextDraw(playerid, 399.333404, 179.199996, "1/1 EAU");
-		PlayerTextDrawLetterSize(playerid, Textdraw17[playerid], 0.449999, 1.600000);
-		PlayerTextDrawAlignment(playerid, Textdraw17[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw17[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw17[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw17[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw17[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw17[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw17[playerid], 1);
-
-		Textdraw18[playerid] = CreatePlayerTextDraw(playerid, 410.333312, 228.977783, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw18[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw18[playerid], 45.000000, 144.355560);
-		PlayerTextDrawAlignment(playerid, Textdraw18[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw18[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw18[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw18[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw18[playerid], 4);
-
-		Textdraw19[playerid] = CreatePlayerTextDraw(playerid, 413.666656, 206.577758, "Fiole");
-		PlayerTextDrawLetterSize(playerid, Textdraw19[playerid], 0.449999, 1.600000);
-		PlayerTextDrawAlignment(playerid, Textdraw19[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw19[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw19[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw19[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw19[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw19[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw19[playerid], 1);
-
-		Textdraw20[playerid] = CreatePlayerTextDraw(playerid, 387.666656, 376.237060, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw20[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw20[playerid], 89.333343, 25.718505);
-		PlayerTextDrawAlignment(playerid, Textdraw20[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw20[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw20[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw20[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw20[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw20[playerid], true);
-
-		Textdraw21[playerid] = CreatePlayerTextDraw(playerid, 388.999908, 380.385223, "Ajouter a la recette");
-		PlayerTextDrawLetterSize(playerid, Textdraw21[playerid], 0.248666, 1.666370);
-		PlayerTextDrawAlignment(playerid, Textdraw21[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw21[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw21[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw21[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw21[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw21[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw21[playerid], 1);
-
-		Textdraw22[playerid] = CreatePlayerTextDraw(playerid, 387.333343, 148.918518, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw22[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw22[playerid], -67.666656, -17.837036);
-		PlayerTextDrawAlignment(playerid, Textdraw22[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw22[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw22[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw22[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw22[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw22[playerid], true);
-
-		Textdraw23[playerid] = CreatePlayerTextDraw(playerid, 320.333343, 131.911056, "5 cui. CS");
-		PlayerTextDrawLetterSize(playerid, Textdraw23[playerid], 0.434999, 1.645629);
-		PlayerTextDrawAlignment(playerid, Textdraw23[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw23[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw23[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw23[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw23[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw23[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw23[playerid], 1);
-
-		Textdraw24[playerid] = CreatePlayerTextDraw(playerid, 319.666687, 154.311111, "LD_SPAC:white");
-		PlayerTextDrawLetterSize(playerid, Textdraw24[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw24[playerid], 67.999969, 18.251846);
-		PlayerTextDrawAlignment(playerid, Textdraw24[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw24[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw24[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw24[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw24[playerid], 4);
-		PlayerTextDrawSetSelectable(playerid, Textdraw24[playerid], true);
-
-		Textdraw25[playerid] = CreatePlayerTextDraw(playerid, 320.666595, 155.970397, "10 cui. CS");
-		PlayerTextDrawLetterSize(playerid, Textdraw25[playerid], 0.380333, 1.624888);
-		PlayerTextDrawAlignment(playerid, Textdraw25[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw25[playerid], -1);
-		PlayerTextDrawSetShadow(playerid, Textdraw25[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw25[playerid], 1);
-		PlayerTextDrawBackgroundColor(playerid, Textdraw25[playerid], 51);
-		PlayerTextDrawFont(playerid, Textdraw25[playerid], 1);
-		PlayerTextDrawSetProportional(playerid, Textdraw25[playerid], 1);
-
-		Textdraw26[playerid] = CreatePlayerTextDraw(playerid, 409.999969, 228.148101, "LD_SPAC:white"); //FIOLE MOITIER
-		PlayerTextDrawLetterSize(playerid, Textdraw26[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw26[playerid], 45.333374, 73.007469);
-		PlayerTextDrawAlignment(playerid, Textdraw26[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw26[playerid], 255);
-		PlayerTextDrawSetShadow(playerid, Textdraw26[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw26[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw26[playerid], 4);
-
-		Textdraw27[playerid] = CreatePlayerTextDraw(playerid, 455.333557, 300.325927, "LD_SPAC:white"); //FIOLE MOITIER
-		PlayerTextDrawLetterSize(playerid, Textdraw27[playerid], 0.000000, 0.000000);
-		PlayerTextDrawTextSize(playerid, Textdraw27[playerid], -45.333366, 72.592613);
-		PlayerTextDrawAlignment(playerid, Textdraw27[playerid], 1);
-		PlayerTextDrawColor(playerid, Textdraw27[playerid], -1378294017);
-		PlayerTextDrawSetShadow(playerid, Textdraw27[playerid], 0);
-		PlayerTextDrawSetOutline(playerid, Textdraw27[playerid], 0);
-		PlayerTextDrawFont(playerid, Textdraw27[playerid], 4);
-		
-		SCM(playerid, -1, "Textdraws initialisés !");
-	    return 1;
-	}
-	
 	if(strcmp("/meth", cmdtext, true, 5) == 0)
 	{
+	    if(!pLoaded[playerid]) LoadDrugLabTxd(playerid);
 		if(pFaction[playerid] == -1) return SCM(playerid, -1, "Vous n'avez pas de faction !");
-	    if(isMakingMeth[playerid])
-	    {
-	        CancelSelectTextDraw(playerid);
-		   	PlayerTextDrawHide(playerid, Textdraw0[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw1[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw2[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw3[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw4[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw5[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw6[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw7[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw8[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw9[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw10[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw11[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw12[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw13[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw14[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw15[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw16[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw17[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw18[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw19[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw20[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw21[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw22[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw23[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw24[playerid]);
-		    PlayerTextDrawHide(playerid, Textdraw25[playerid]);
-	    
-	    }
-	    else
-		{
-		    SelectTextDraw(playerid, 0x00FF00FF);
-		   	PlayerTextDrawShow(playerid, Textdraw0[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw1[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw2[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw3[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw4[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw5[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw6[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw7[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw8[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw9[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw10[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw11[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw12[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw13[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw14[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw15[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw16[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw17[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw18[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw19[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw20[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw21[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw22[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw23[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw24[playerid]);
-		    PlayerTextDrawShow(playerid, Textdraw25[playerid]);
-		
-		}
+		ShowMethDialog(playerid);
+	    return 1;
+	}
+	if(strcmp("/ingredient", cmdtext, true, 11) == 0)
+	{
+		pHcl[playerid]++;
+		pMu[playerid]++;
+		pCs[playerid]++;
+		pEau[playerid]++;
+		pAcide[playerid]++;
+		SCM(playerid, -1, "Les ingrédients ont été ajoutés à votre inventaire !");
 	    return 1;
 	}
 	return 0;
@@ -741,20 +475,163 @@ public OnPlayerCommandText(playerid, cmdtext[])
 
 public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 {
-    if(playertextid == Textdraw1[playerid])
+	printf("textdraw appelé : %i", _:playertextid);
+    if(playertextid == Textdraw1[playerid]) //Bouton Mettre HCL
     {
-  		PlayerTextDrawSetSelectable(playerid, Textdraw1[playerid], 0);
-		PlayerTextDrawColor(playerid, Textdraw1[playerid], 0xD11313FF);
-		PlayerTextDrawHide(playerid, Textdraw1[playerid]);
-		PlayerTextDrawShow(playerid, Textdraw1[playerid]);
+        if(Labo[pFaction[playerid]][hcl] == 0) return SCM(playerid, -1, "Il n'y a pas de Chlorure d'Hydrogène dans le labo !");
+        if(Labo[pFaction[playerid]][lStep] == -1)
+        {
+            SCM(playerid, -1, "Vous avez placé le HCL, maintenant inserez le MU");
+            Labo[pFaction[playerid]][lStep] = 1;
+            Labo[pFaction[playerid]][hcl]--;
+            PlayerTextDrawSetSelectable(playerid, Textdraw1[playerid], 0);
+			PlayerTextDrawColor(playerid, Textdraw1[playerid], 0xD11313FF);
+			PlayerTextDrawHide(playerid, Textdraw1[playerid]);
+			PlayerTextDrawShow(playerid, Textdraw1[playerid]);
+        }
+  		
     }
-    else if(playertextid == Textdraw3[playerid])
+    else if(playertextid == Textdraw3[playerid]) //Bouton Mettre MU
     {
-  		PlayerTextDrawSetSelectable(playerid, Textdraw3[playerid], 0);
-		PlayerTextDrawColor(playerid, Textdraw3[playerid], 0xD11313FF);
-		PlayerTextDrawHide(playerid, Textdraw3[playerid]);
-		PlayerTextDrawShow(playerid, Textdraw3[playerid]);
+        if(Labo[pFaction[playerid]][mu] == 0) return SCM(playerid, -1, "Il n'y a pas d'acide chlorydrique dans le labo !");
+        if(Labo[pFaction[playerid]][lStep] == 1)
+        {
+            SCM(playerid, -1, "Vous avez placé le HCL, maintenant régler le régulateur de la plaque chauffante à 45 degrées");
+            Labo[pFaction[playerid]][lStep] = 2;
+            Labo[pFaction[playerid]][mu]--;
+            PlayerTextDrawSetSelectable(playerid, Textdraw3[playerid], 0);
+			PlayerTextDrawColor(playerid, Textdraw3[playerid], 0xD11313FF);
+			PlayerTextDrawHide(playerid, Textdraw3[playerid]);
+			PlayerTextDrawShow(playerid, Textdraw3[playerid]);
+		}
+	}
+    else if(playertextid == Textdraw7[playerid]) //REGULER
+    {
+        ShowPlayerDialog(playerid,DIALOG_INT_REGULER, DIALOG_STYLE_INPUT, "Reguler la température", "Entrez la température à atteindre (0 à 101 degrées) :", "Réguler", "Annuler");
     }
+    else if(playertextid == Textdraw9[playerid]) //Mettre sur le feu
+    {
+        Labo[pFaction[playerid]][isCooking] = true;
+        PlayerTextDrawSetSelectable(playerid, Textdraw9[playerid], 0);
+        PlayerTextDrawSetSelectable(playerid, Textdraw28[playerid], 1);
+        PlayerTextDrawColor(playerid, Textdraw9[playerid], 0xD11313FF);
+        PlayerTextDrawColor(playerid, Textdraw28[playerid], 255);
+        
+        PlayerTextDrawHide(playerid, Textdraw9[playerid]);
+		PlayerTextDrawShow(playerid, Textdraw9[playerid]);
+		
+        UpdatePlayerTextDraw(playerid, Textdraw9[playerid]);
+        UpdatePlayerTextDraw(playerid, Textdraw28[playerid]);
+        
+        if(Labo[pFaction[playerid]][lStep] == 3)
+        {
+			SCM(playerid, -1, "Très bien ! Maintenant, patientez quelques instant pour que la solution cuise");
+			Labo[pFaction[playerid]][lStep] = 4;
+        }
+        else if(Labo[pFaction[playerid]][lStep] == 10)
+        {
+       		SCM(playerid, -1, "Très bien ! Maintenant, patientez quelques instant pour que la solution cuise");
+			Labo[pFaction[playerid]][lStep] = 11;
+        }
+        return 1;
+    }
+    else if(playertextid == Textdraw12[playerid]) // BOUTON 1/3 EAU
+    {
+        if(Labo[pFaction[playerid]][eau] == 0) return SCM(playerid, -1, "Il n'y a pas de bouteille d'eau dans le labo !");
+        Labo[pFaction[playerid]][eau]--;
+    	PlayerTextDrawSetSelectable(playerid, Textdraw12[playerid], 0);
+		PlayerTextDrawColor(playerid, Textdraw12[playerid], 0xD11313FF);
+		PlayerTextDrawHide(playerid, Textdraw12[playerid]);
+		PlayerTextDrawShow(playerid, Textdraw12[playerid]);
+		return 1;
+    
+    }
+    else if(playertextid == Textdraw14[playerid]) // BOUTON 1/2 EAU
+    {
+        if(Labo[pFaction[playerid]][eau] == 0) return SCM(playerid, -1, "Il n'y a pas de bouteille d'eau dans le labo !");
+        Labo[pFaction[playerid]][eau]--;
+    	PlayerTextDrawSetSelectable(playerid, Textdraw14[playerid], 0);
+		PlayerTextDrawColor(playerid, Textdraw14[playerid], 0xD11313FF);
+		PlayerTextDrawHide(playerid, Textdraw14[playerid]);
+		PlayerTextDrawShow(playerid, Textdraw14[playerid]);
+		if(Labo[pFaction[playerid]][lStep] == 6)
+		{
+		    Labo[pFaction[playerid]][lStep] = 7;
+		    SCM(playerid, -1, "Bien ! Ajoutez y 10 cuillières d'acide tout en mélangeant");
+		}
+		return 1;
+    }
+    else if(playertextid == Textdraw16[playerid]) // BOUTON 1/1 EAU
+    {
+        if(Labo[pFaction[playerid]][eau] == 0) return SCM(playerid, -1, "Il n'y a pas de bouteille d'eau dans le labo !");
+        Labo[pFaction[playerid]][eau]--;
+    	PlayerTextDrawSetSelectable(playerid, Textdraw16[playerid], 0);
+		PlayerTextDrawColor(playerid, Textdraw16[playerid], 0xD11313FF);
+		PlayerTextDrawHide(playerid, Textdraw16[playerid]);
+		PlayerTextDrawShow(playerid, Textdraw16[playerid]);
+		return 1;
+    }
+    else if(playertextid == Textdraw20[playerid])
+    {
+        if(Labo[pFaction[playerid]][lStep] == 8)
+        {
+            SCM(playerid, -1, "Bien ! Maintenant que c'est melangé, réglez le régulateur sur 85 degré");
+			Labo[pFaction[playerid]][lStep] = 9;
+        }
+    }
+    else if(playertextid == Textdraw22[playerid]) // BOUTON 10 CUI CS
+    {
+        if(Labo[pFaction[playerid]][acide] == 0) return SCM(playerid, -1, "Il n'y a pas de bouteille d'acide dans le labo !");
+        Labo[pFaction[playerid]][acide]--;
+    	PlayerTextDrawSetSelectable(playerid, Textdraw22[playerid], 0);
+		PlayerTextDrawColor(playerid, Textdraw22[playerid], 0xD11313FF);
+		PlayerTextDrawHide(playerid, Textdraw22[playerid]);
+		PlayerTextDrawShow(playerid, Textdraw22[playerid]);
+		if(Labo[pFaction[playerid]][lStep] == 7)
+		{
+		    SCM(playerid, -1, "Parfait ! Il ne vous reste plus qu'à verser l'éprouvette dans la solution !");
+		    Labo[pFaction[playerid]][lStep] = 8;
+		}
+		return 1;
+    }
+    else if(playertextid == Textdraw26[playerid])
+    {
+        if(Labo[pFaction[playerid]][lStep] != -1) return SCM(playerid, -1, "Vous ne pouvez recommencer si vous n'avez pas commencé !");
+        Labo[pFaction[playerid]][lStep] = -1;
+        Labo[pFaction[playerid]][lTime] = -1;
+        SCM(playerid, -1, "Vous avez jeté votre solution, vous pouvez désormais tout recommencer");
+        return 1;
+    }
+    else if (playertextid == Textdraw28[playerid]) //Retirer du feu
+    {
+    	Labo[pFaction[playerid]][isCooking] = false;
+        PlayerTextDrawSetSelectable(playerid, Textdraw28[playerid], 0);
+        PlayerTextDrawSetSelectable(playerid, Textdraw9[playerid], 1);
+        PlayerTextDrawColor(playerid, Textdraw28[playerid], 0xD11313FF);
+        PlayerTextDrawColor(playerid, Textdraw9[playerid], 255);
+        
+        UpdatePlayerTextDraw(playerid, Textdraw9[playerid]);
+        UpdatePlayerTextDraw(playerid, Textdraw28[playerid]);
+        
+		if(Labo[pFaction[playerid]][lStep] == 5)
+		{
+		    SCM(playerid, -1, "Bien, maintenant qu'elle est prête, ajoutez 1/2 litre d'eau dans l'éprouvette");
+		    Labo[pFaction[playerid]][lStep] = 6;
+		    
+		}
+		else if(Labo[pFaction[playerid]][lStep] == 12)
+		{
+		    SCM(playerid, -1, "Parfait ! La solution a été conçu avec succès !");
+ 	    	SCM(playerid, -1, "Le labo a récupéré 3 grammes de methamphétamine");
+ 	    	Labo[pFaction[playerid]][nbMeth] += 3;
+		}
+        return 1;
+    }
+    return 1;
+}
+
+public OnPlayerClickTextDraw(playerid, Text:clickedid)
+{
     return 1;
 }
 
@@ -886,7 +763,128 @@ public OnVehicleStreamOut(vehicleid, forplayerid)
 
 public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 {
-	return 1;
+	switch(dialogid)
+	{
+		case DIALOG_DRUGLAB:
+	    {
+			if(response)
+			{
+				switch(listitem)
+	    		{
+     			   	case 0:
+					{
+						if(!isMakingMeth[playerid])
+     			       	{
+							SelectTextDraw(playerid, 0x00FF00FF);
+							ShowDrugLabTextdraw(playerid);
+							new
+								str[50];
+							format(str, sizeof(str), "%i Degrers", Labo[pFaction[playerid]][lTemp]);
+							PlayerTextDrawSetString(playerid, Textdraw5[playerid], str);
+							UpdatePlayerTextDraw(playerid, Textdraw5[playerid]);
+
+							format(str, sizeof(str), "Niveau : %i", Labo[pFaction[playerid]][lNiveauReguler]);
+							PlayerTextDrawSetString(playerid, Textdraw11[playerid], str);
+							
+							if(Labo[pFaction[playerid]][isCooking])
+							{
+							    PlayerTextDrawSetSelectable(playerid, Textdraw9[playerid], 0);
+						        PlayerTextDrawSetSelectable(playerid, Textdraw28[playerid], 1);
+						        PlayerTextDrawColor(playerid, Textdraw9[playerid], 0xD11313FF);
+						        PlayerTextDrawColor(playerid, Textdraw28[playerid], 255);
+							}
+							else
+							{
+							    PlayerTextDrawSetSelectable(playerid, Textdraw28[playerid], 0);
+						        PlayerTextDrawSetSelectable(playerid, Textdraw9[playerid], 1);
+						        PlayerTextDrawColor(playerid, Textdraw28[playerid], 0xD11313FF);
+						        PlayerTextDrawColor(playerid, Textdraw9[playerid], 255);
+							}
+							UpdatePlayerTextDraw(playerid, Textdraw9[playerid]);
+							UpdatePlayerTextDraw(playerid, Textdraw28[playerid]);
+							UpdatePlayerTextDraw(playerid, Textdraw11[playerid]);
+
+							if(Labo[pFaction[playerid]][lStep] == -1) SCM(playerid, -1, "Placez le HCL");
+							isMakingMeth[playerid] = true;
+							Labo[pFaction[playerid]][isactive] = true;
+						}
+						else
+						{
+							CancelSelectTextDraw(playerid);
+							HideDrugLabTextdraw(playerid);
+							isMakingMeth[playerid] = false;
+							Labo[pFaction[playerid]][isactive] = false;
+						}
+						return 1;
+					}
+					case 1: //HCL
+					{
+					    if(pHcl[playerid] <= 0) return SCM(playerid, -1, "Vous n'avez pas de chlorure d'hydrogène !");
+					    pHcl[playerid]--;
+					    Labo[pFaction[playerid]][hcl]++;
+					    ShowMethDialog(playerid);
+					    return 1;
+					}
+					case 2: //MU
+					{
+					    if(pMu[playerid] <= 0) return SCM(playerid, -1, "Vous n'avez pas d'acide chlorydrique !");
+					    pMu[playerid]--;
+					    Labo[pFaction[playerid]][mu]++;
+					    ShowMethDialog(playerid);
+					    return 1;
+					}
+					case 3: //CS
+					{
+					    if(pCs[playerid] <= 0) return SCM(playerid, -1, "Vous n'avez pas de soude caustique");
+					    pCs[playerid]--;
+					    Labo[pFaction[playerid]][cs]++;
+						ShowMethDialog(playerid);
+						return 1;
+					}
+					case 4: //EAU
+					{
+					    if(pEau[playerid] <= 0) return SCM(playerid, -1, "Vous n'avez pas d'eau !");
+					    pEau[playerid]--;
+					    Labo[pFaction[playerid]][eau]++;
+					    ShowMethDialog(playerid);
+					    return 1;
+					}
+					case 5: //ACIDE
+					{
+					    if(pAcide[playerid] <= 0) return SCM(playerid, -1, "Vous n'avez pas d'acide !");
+					    pAcide[playerid]--;
+					    Labo[pFaction[playerid]][acide]++;
+					    ShowMethDialog(playerid);
+					    return 1;
+					}
+
+    			}
+			}
+			return 1;
+	    }
+	    case DIALOG_INT_REGULER:
+	    {
+	        if(response)
+	        {
+				if(strlen(inputtext) > 3) return SCM(playerid, -1, "Merci d'entrer une température entre 0 et 101 degrées");
+				if(!IsNumeric(inputtext)) return SCM(playerid, -1, "Merci d'entrer un nombre entier entre 0 et 101 degrées");
+				new
+				    result = strval(inputtext),
+					str[128];
+				result = Labo[pFaction[playerid]][lNiveauReguler] = result;
+
+				format(str, sizeof(str), "Le régulateur a bien été configuré sur %i degrées !", Labo[pFaction[playerid]][lNiveauReguler]);
+	            SCM(playerid, -1, str);
+	            
+	            format(str, sizeof(str), "Regulateur : %i degrers", Labo[pFaction[playerid]][lNiveauReguler]);
+	            PlayerTextDrawSetString(playerid, Textdraw11[playerid], str);
+	            
+	            return 1;
+	        }
+	    
+	    }
+	}
+	return 0;
 }
 
 public OnPlayerClickPlayer(playerid, clickedplayerid, source)
@@ -936,12 +934,13 @@ public Timer1s()
 					        case 10,20,30,40,50,60,70,80,90:
 					        {
 					            SetDynamicObjectPos(Drogue[a][i][dId], pos[0], pos[1], pos[2]+0.1);
+					            format(str, sizeof(str), "Champ de drogue n°%i.%i \n Maturite = %i % \n Elle semble asséchée", i, a, Drogue[a][i][dMaturite]);
+								Update3DTextLabelText(Drogue[a][i][dIdLabel], 0x008080FF, str);
+								Drogue[a][i][arroser] = false;
 							}
 					    }
-					    if(Drogue[a][i][arroser]) Drogue[a][i][dNbArroser]++;
-						format(str, sizeof(str), "Champ de drogue n°%i.%i \n Maturite = %i % \nElle semble asséchée", i, a, Drogue[a][i][dMaturite]);
-						Update3DTextLabelText(Drogue[a][i][dIdLabel], 0x008080FF, str);
-						Drogue[a][i][arroser] = false;
+						/*format(str, sizeof(str), "Champ de drogue n°%i.%i \n Maturite = %i % \nElle semble asséchée", i, a, Drogue[a][i][dMaturite]);
+						Update3DTextLabelText(Drogue[a][i][dIdLabel], 0x008080FF, str);*/
                         Drogue[a][i][dTime] = 0;
 					}
 					else if(Drogue[a][i][dMaturite] >= 100 && Drogue[a][i][dMaturite] < 150)
@@ -956,11 +955,7 @@ public Timer1s()
 			    }
 			    else if(Drogue[a][i][isactive] && Drogue[a][i][dFire] != -1)
 			    {
-                    //printf("Valeur dFire = %i , Valeur dFireTime = %i", Drogue[a][i][dFire], Drogue[a][i][dFireTime]);
-			        if(Drogue[a][i][dFireTime] > 0)
-			        {
-			            Drogue[a][i][dFireTime]--;
-			        }
+			        if(Drogue[a][i][dFireTime] > 0) Drogue[a][i][dFireTime]--;
 			        else if (Drogue[a][i][dFireTime] == 0)
 			        {
 			            Drogue[a][i][isactive] = false;
@@ -973,6 +968,107 @@ public Timer1s()
 			        }
 			        Drogue[a][i][dTime] = 0;
 				}
+			}
+		}
+	}
+	return 1;
+}
+
+public Timer3s()
+{
+	for(new i = 0; i < MAX_LABO; i++)
+	{
+		printf("lTemp = %i, LNiveau = %i", Labo[i][lTemp], Labo[i][lNiveauReguler]);
+		printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	    if(Labo[i][lStep] != 1) //Si une préparation est en cours
+	    {
+         	if(Labo[i][lNiveauReguler] > Labo[i][lTemp])
+	        {
+				Labo[i][lTemp]++;
+	        }
+	        else if(Labo[i][lNiveauReguler] < Labo[i][lTemp])
+	        {
+	            Labo[i][lTemp]--;
+	        }
+			if(Labo[i][isactive])
+			{
+			    for(new a = 0, j = GetPlayerPoolSize(); a <= j; a++)
+			    {
+			        if(isMakingMeth[a] && pFaction[a] == i)
+			        {
+			        	new
+	            			str[50];
+						format(str, sizeof(str), "%i Degrers", Labo[i][lTemp]);
+			            PlayerTextDrawSetString(a, Textdraw5[a], str);
+	        			UpdatePlayerTextDraw(a, Textdraw5[a]);
+			        }
+				}
+			}
+			if(Labo[i][lStep] == 2)
+			{
+				if(Labo[i][lTemp] == 45 && Labo[i][lNiveauReguler] == 45)
+				{
+				    for(new a = 0, j = GetPlayerPoolSize(); a <= j; a++)
+			    	{
+				        if(isMakingMeth[a] && pFaction[a] == i)
+				        {
+							SCM(i, -1, "Maintenant que la température est reglée, placez la solution sur le feu");
+							Labo[i][lStep] = 3;
+						}
+					}
+				}
+			}
+			else if(Labo[i][lStep] == 4)
+			{
+			    if(Labo[i][lTemp] == 45 && Labo[i][lNiveauReguler] == 45)
+			    {
+			        Labo[i][lCptTemp]++;
+			        if(Labo[i][lCptTemp] == 5)
+					{
+					    for(new a = 0, j = GetPlayerPoolSize(); a <= j; a++)
+			    		{
+				        	if(isMakingMeth[a] && pFaction[a] == i)
+				        	{
+							    Labo[i][lStep] = 5;
+							    SCM(a, -1, "Bien ! La solution semble prête, retirez la du feu");
+							    Labo[i][lCptTemp] = 0;
+							}
+						}
+					}
+			    }
+			}
+			else if(Labo[i][lStep] == 9)
+			{
+			    if(Labo[i][lTemp] == 85 && Labo[i][lNiveauReguler] == 85)
+				{
+				    for(new a = 0, j = GetPlayerPoolSize(); a <= j; a++)
+		    		{
+			        	if(isMakingMeth[a] && pFaction[a] == i)
+			        	{
+			        	    SCM(i, -1, "Maintenant que la température est reglée, placez la solution sur le feu");
+			        	    Labo[i][lStep] = 10;
+						}
+					}
+				}
+			}
+			else if(Labo[i][lStep] == 11)
+			{
+			    if(Labo[i][lTemp] == 85 && Labo[i][lNiveauReguler] == 85)
+			    {
+			        Labo[i][lCptTemp]++;
+			        if(Labo[i][lCptTemp] == 5)
+					{
+					    for(new a = 0, j = GetPlayerPoolSize(); a <= j; a++)
+			    		{
+				        	if(isMakingMeth[a] && pFaction[a] == i)
+				        	{
+							    Labo[i][lStep] = 12;
+							    SCM(a, -1, "Bien ! La solution semble prête, retirez la du feu");
+							    Labo[i][lCptTemp] = 0;
+							}
+						}
+					}
+			    }
 			}
 		}
 	}
@@ -1126,6 +1222,13 @@ stock GetNearestPlantIdChamp(playerid)
 	return id;
 }
 
+stock UpdatePlayerTextDraw(playerid, PlayerText:txd)
+{
+    PlayerTextDrawHide(playerid, txd);
+    PlayerTextDrawShow(playerid, txd);
+	return 1;
+}
+
 stock Random(min, max)
 {
     new a = random(max - min) + min;
@@ -1135,4 +1238,441 @@ stock Random(min, max)
 stock GetFac(playerid)
 {
 	return pFaction[playerid];
+}
+
+stock LoadDrugLabTxd(playerid)
+{
+    Textdraw0[playerid] = CreatePlayerTextDraw(playerid, 515.000000, 110.596298, "usebox");
+	PlayerTextDrawLetterSize(playerid, Textdraw0[playerid], 0.000000, 32.868511);
+	PlayerTextDrawTextSize(playerid, Textdraw0[playerid], 119.000000, 0.000000);
+	PlayerTextDrawAlignment(playerid, Textdraw0[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw0[playerid], 0);
+	PlayerTextDrawUseBox(playerid, Textdraw0[playerid], true);
+	PlayerTextDrawBoxColor(playerid, Textdraw0[playerid], 102);
+	PlayerTextDrawSetShadow(playerid, Textdraw0[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw0[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw0[playerid], 0);
+
+	Textdraw1[playerid] = CreatePlayerTextDraw(playerid, 162.333297, 131.911148, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw1[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw1[playerid], 88.666694, 23.229627);
+	PlayerTextDrawAlignment(playerid, Textdraw1[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw1[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw1[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw1[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw1[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw1[playerid], true);
+
+	Textdraw2[playerid] = CreatePlayerTextDraw(playerid, 163.999954, 136.059280, "Mettre HCL");
+	PlayerTextDrawLetterSize(playerid, Textdraw2[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw2[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw2[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw2[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw2[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw2[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw2[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw2[playerid], 1);
+
+	Textdraw3[playerid] = CreatePlayerTextDraw(playerid, 163.000030, 161.777725, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw3[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw3[playerid], 88.000000, 22.814819);
+	PlayerTextDrawAlignment(playerid, Textdraw3[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw3[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw3[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw3[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw3[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw3[playerid], true);
+
+	Textdraw4[playerid] = CreatePlayerTextDraw(playerid, 166.666671, 166.340698, "Mettre MU");
+	PlayerTextDrawLetterSize(playerid, Textdraw4[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw4[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw4[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw4[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw4[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw4[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw4[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw4[playerid], 1);
+
+	Textdraw5[playerid] = CreatePlayerTextDraw(playerid, 168.666656, 258.014801, "0 degrer");
+	PlayerTextDrawLetterSize(playerid, Textdraw5[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw5[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw5[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw5[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw5[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw5[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw5[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw5[playerid], 1);
+
+	Textdraw6[playerid] = CreatePlayerTextDraw(playerid, 152.999893, 231.051834, "Thermometre");
+	PlayerTextDrawLetterSize(playerid, Textdraw6[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw6[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw6[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw6[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw6[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw6[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw6[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw6[playerid], 1);
+
+	Textdraw7[playerid] = CreatePlayerTextDraw(playerid, 173.999969, 293.274108, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw7[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw7[playerid], 51.666671, 17.007385);
+	PlayerTextDrawAlignment(playerid, Textdraw7[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw7[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw7[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw7[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw7[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw7[playerid], true);
+
+	Textdraw8[playerid] = CreatePlayerTextDraw(playerid, 176.666641, 293.688781, "Reguler");
+	PlayerTextDrawLetterSize(playerid, Textdraw8[playerid], 0.383333, 1.554370);
+	PlayerTextDrawAlignment(playerid, Textdraw8[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw8[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw8[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw8[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw8[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw8[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw8[playerid], 1);
+
+	Textdraw9[playerid] = CreatePlayerTextDraw(playerid, 128.333328, 202.429626, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw9[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw9[playerid], 70.000000, 17.837051);
+	PlayerTextDrawAlignment(playerid, Textdraw9[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw9[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw9[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw9[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw9[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw9[playerid], true);
+
+	Textdraw10[playerid] = CreatePlayerTextDraw(playerid, 129.333374, 203.674087, "Mettre au feu");
+	PlayerTextDrawLetterSize(playerid, Textdraw10[playerid], 0.280333, 1.666370);
+	PlayerTextDrawAlignment(playerid, Textdraw10[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw10[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw10[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw10[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw10[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw10[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw10[playerid], 1);
+
+	Textdraw11[playerid] = CreatePlayerTextDraw(playerid, 153.666687, 316.088989, "Regulateur : 0 degrer");
+	PlayerTextDrawLetterSize(playerid, Textdraw11[playerid], 0.250665, 1.566815);
+	PlayerTextDrawAlignment(playerid, Textdraw11[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw11[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw11[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw11[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw11[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw11[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw11[playerid], 1);
+
+	Textdraw12[playerid] = CreatePlayerTextDraw(playerid, 395.333343, 129.422210, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw12[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw12[playerid], 75.666664, 20.325922);
+	PlayerTextDrawAlignment(playerid, Textdraw12[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw12[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw12[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw12[playerid], 0);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw12[playerid], 255);
+	PlayerTextDrawFont(playerid, Textdraw12[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw12[playerid], true);
+
+	Textdraw13[playerid] = CreatePlayerTextDraw(playerid, 402.000030, 131.081466, "1/3 EAU");
+	PlayerTextDrawLetterSize(playerid, Textdraw13[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw13[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw13[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw13[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw13[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw13[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw13[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw13[playerid], 1);
+
+	Textdraw14[playerid] = CreatePlayerTextDraw(playerid, 394.666656, 155.140731, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw14[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw14[playerid], 76.666656, 18.251861);
+	PlayerTextDrawAlignment(playerid, Textdraw14[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw14[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw14[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw14[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw14[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw14[playerid], true);
+
+	Textdraw15[playerid] = CreatePlayerTextDraw(playerid, 401.333251, 156.385162, "1/2 EAU");
+	PlayerTextDrawLetterSize(playerid, Textdraw15[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw15[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw15[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw15[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw15[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw15[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw15[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw15[playerid], 1);
+
+	Textdraw16[playerid] = CreatePlayerTextDraw(playerid, 394.333343, 178.370376, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw16[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw16[playerid], 76.333312, 16.177764);
+	PlayerTextDrawAlignment(playerid, Textdraw16[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw16[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw16[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw16[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw16[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw16[playerid], true);
+
+	Textdraw17[playerid] = CreatePlayerTextDraw(playerid, 402.000122, 178.370376, "1/1 EAU");
+	PlayerTextDrawLetterSize(playerid, Textdraw17[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw17[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw17[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw17[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw17[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw17[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw17[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw17[playerid], 1);
+
+	Textdraw18[playerid] = CreatePlayerTextDraw(playerid, 410.333312, 228.977783, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw18[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw18[playerid], 45.000000, 144.355560);
+	PlayerTextDrawAlignment(playerid, Textdraw18[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw18[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw18[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw18[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw18[playerid], 4);
+
+	Textdraw19[playerid] = CreatePlayerTextDraw(playerid, 413.666656, 206.577758, "Fiole");
+	PlayerTextDrawLetterSize(playerid, Textdraw19[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw19[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw19[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw19[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw19[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw19[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw19[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw19[playerid], 1);
+
+	Textdraw20[playerid] = CreatePlayerTextDraw(playerid, 387.666656, 376.237060, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw20[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw20[playerid], 89.333343, 25.718505);
+	PlayerTextDrawAlignment(playerid, Textdraw20[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw20[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw20[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw20[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw20[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw20[playerid], true);
+
+	Textdraw21[playerid] = CreatePlayerTextDraw(playerid, 388.999908, 380.385223, "Ajouter a la recette");
+	PlayerTextDrawLetterSize(playerid, Textdraw21[playerid], 0.248666, 1.666370);
+	PlayerTextDrawAlignment(playerid, Textdraw21[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw21[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw21[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw21[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw21[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw21[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw21[playerid], 1);
+
+	Textdraw22[playerid] = CreatePlayerTextDraw(playerid, 320.000030, 177.540740, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw22[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw22[playerid], 67.999969, 18.251846);
+	PlayerTextDrawAlignment(playerid, Textdraw22[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw22[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw22[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw22[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw22[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw22[playerid], true);
+
+	Textdraw23[playerid] = CreatePlayerTextDraw(playerid, 321.333251, 179.200042, "10 cui. CS");
+	PlayerTextDrawLetterSize(playerid, Textdraw23[playerid], 0.380333, 1.624886);
+	PlayerTextDrawAlignment(playerid, Textdraw23[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw23[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw23[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw23[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw23[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw23[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw23[playerid], 1);
+
+	Textdraw24[playerid] = CreatePlayerTextDraw(playerid, 409.999969, 228.148101, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw24[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw24[playerid], 45.333374, 73.007469);
+	PlayerTextDrawAlignment(playerid, Textdraw24[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw24[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw24[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw24[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw24[playerid], 4);
+
+	Textdraw25[playerid] = CreatePlayerTextDraw(playerid, 455.333557, 300.325927, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw25[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw25[playerid], -45.333366, 72.592613);
+	PlayerTextDrawAlignment(playerid, Textdraw25[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw25[playerid], -1378294017);
+	PlayerTextDrawSetShadow(playerid, Textdraw25[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw25[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw25[playerid], 4);
+
+	Textdraw26[playerid] = CreatePlayerTextDraw(playerid, 159.333267, 360.474121, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw26[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw26[playerid], 77.000000, 19.081481);
+	PlayerTextDrawAlignment(playerid, Textdraw26[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw26[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw26[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw26[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw26[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw26[playerid], true);
+
+	Textdraw27[playerid] = CreatePlayerTextDraw(playerid, 178.333404, 361.303771, "Jeter");
+	PlayerTextDrawLetterSize(playerid, Textdraw27[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw27[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw27[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw27[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw27[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw27[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw27[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw27[playerid], 1);
+
+	Textdraw28[playerid] = CreatePlayerTextDraw(playerid, 210.666671, 202.844436, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw28[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw28[playerid], 66.666671, 16.592605);
+	PlayerTextDrawAlignment(playerid, Textdraw28[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw28[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw28[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw28[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw28[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw28[playerid], true);
+
+	Textdraw29[playerid] = CreatePlayerTextDraw(playerid, 211.999969, 203.259231, "Enlever du feu");
+	PlayerTextDrawLetterSize(playerid, Textdraw29[playerid], 0.257666, 1.645629);
+	PlayerTextDrawAlignment(playerid, Textdraw29[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw29[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw29[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw29[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw29[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw29[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw29[playerid], 1);
+
+	Textdraw30[playerid] = CreatePlayerTextDraw(playerid, 259.000000, 114.074073, "Labo de Drogue");
+	PlayerTextDrawLetterSize(playerid, Textdraw30[playerid], 0.449999, 1.600000);
+	PlayerTextDrawAlignment(playerid, Textdraw30[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw30[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw30[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw30[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw30[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw30[playerid], 3);
+	PlayerTextDrawSetProportional(playerid, Textdraw30[playerid], 1);
+
+	Textdraw31[playerid] = CreatePlayerTextDraw(playerid, 320.666656, 173.807403, "LD_SPAC:white");
+	PlayerTextDrawLetterSize(playerid, Textdraw31[playerid], 0.000000, 0.000000);
+	PlayerTextDrawTextSize(playerid, Textdraw31[playerid], 66.999969, -16.177780);
+	PlayerTextDrawAlignment(playerid, Textdraw31[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw31[playerid], 255);
+	PlayerTextDrawSetShadow(playerid, Textdraw31[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw31[playerid], 0);
+	PlayerTextDrawFont(playerid, Textdraw31[playerid], 4);
+	PlayerTextDrawSetSelectable(playerid, Textdraw31[playerid], true);
+
+	Textdraw32[playerid] = CreatePlayerTextDraw(playerid, 322.000000, 158.459228, "5 cui. CS");
+	PlayerTextDrawLetterSize(playerid, Textdraw32[playerid], 0.424666, 1.616592);
+	PlayerTextDrawAlignment(playerid, Textdraw32[playerid], 1);
+	PlayerTextDrawColor(playerid, Textdraw32[playerid], -1);
+	PlayerTextDrawSetShadow(playerid, Textdraw32[playerid], 0);
+	PlayerTextDrawSetOutline(playerid, Textdraw32[playerid], 1);
+	PlayerTextDrawBackgroundColor(playerid, Textdraw32[playerid], 51);
+	PlayerTextDrawFont(playerid, Textdraw32[playerid], 1);
+	PlayerTextDrawSetProportional(playerid, Textdraw32[playerid], 1);
+	
+	pLoaded[playerid] = true;
+	return 1;
+}
+
+stock ShowMethDialog(playerid)
+{
+	new
+	    string[300],
+	    idlab = pFaction[playerid];
+    if(!isMakingMeth[playerid])
+	{
+		format(string, sizeof(string), "Cuisiner\nAjouter HCL (restant: %i)\nAjouter MU (restant: %i)\nAjouter CS (restant: %i)\nAjouter Eau (restant : %i)\nAjouter Acide (restant : %i)\nTotal meth : %i grammes", Labo[idlab][hcl], Labo[idlab][mu], Labo[idlab][cs], Labo[idlab][eau], Labo[idlab][acide], Labo[idlab][nbMeth]);
+	}
+	else
+	{
+		format(string, sizeof(string), "Arrêter\nAjouter HCL (restant: %i)\nAjouter MU (restant: %i)\nAjouter CS (restant: %i)\nAjouter Eau (restant : %i)\nAjouter Acide (restant : %i)\nTotal meth : %i grammes", Labo[idlab][hcl], Labo[idlab][mu], Labo[idlab][cs], Labo[idlab][eau], Labo[idlab][acide], Labo[idlab][nbMeth]);
+	}
+	ShowPlayerDialog(playerid, DIALOG_DRUGLAB, DIALOG_STYLE_LIST, "Labo", string, "Valider", "Annuler");
+	return 1;
+}
+
+stock HideDrugLabTextdraw(playerid)
+{
+    PlayerTextDrawHide(playerid, Textdraw0[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw1[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw2[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw3[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw4[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw5[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw6[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw7[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw8[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw9[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw10[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw11[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw12[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw13[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw14[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw15[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw16[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw17[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw18[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw19[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw20[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw21[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw22[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw23[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw24[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw25[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw26[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw27[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw28[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw29[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw30[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw31[playerid]);
+    PlayerTextDrawHide(playerid, Textdraw32[playerid]);
+	return 1;
+}
+
+stock ShowDrugLabTextdraw(playerid)
+{
+    PlayerTextDrawShow(playerid, Textdraw0[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw1[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw2[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw3[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw4[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw5[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw6[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw7[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw8[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw9[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw10[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw11[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw12[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw13[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw14[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw15[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw16[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw17[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw18[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw19[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw20[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw21[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw22[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw23[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw24[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw25[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw26[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw27[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw28[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw29[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw30[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw31[playerid]);
+    PlayerTextDrawShow(playerid, Textdraw32[playerid]);
+	return 1;
+}
+
+IsNumeric(const string[])
+{
+        for (new i = 0, j = strlen(string); i < j; i++)
+        {
+                if (string[i] > '9' || string[i] < '0') return 0;
+        }
+        return 1;
 }
